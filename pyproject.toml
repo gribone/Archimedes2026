@@ -1,0 +1,30 @@
+[project]
+name = "archimedes2026"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "MariosCodes", email = "104013314+MariosCodes@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=2.0.0",
+    "numpy>=2.5.4",
+    "ollama>=0.6.3",
+    "openpyxl>=3.1.5",
+    "plotly>=7.1.0",
+    "polars>=2.1.0",
+    "pyarrow>=26.0.1",
+    "rapidfuzz>=3.14.6",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "sentence-transformers>=6.2.0",
+    "streamlit>=1.67.0",
+]
+
+[project.scripts]
+archimedes2026 = "archimedes2026:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
