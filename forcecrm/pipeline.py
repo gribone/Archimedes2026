@@ -13,8 +13,9 @@ from threadpoolctl import threadpool_limits
 from .clustering import discover, stability
 from .data import FILES, load_universe
 from .evidence import significant_features
-from .features import build_features
+from .features import build_features, is_custom, normalize_weights
 from .narrative import narrate, DEFAULT_LLM
+from .titles import activity_mix, make_title
 from .affinity import market_affinity
 from .enrichment import enrich
 
@@ -105,13 +106,14 @@ def evaluate_holdout(X, companies, portfolio, primary_codes, seed=2026):
 
 @threadpool_limits.wrap(limits=2, user_api='blas')
 def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=lambda message: None,
-                 bootstrap=20, evaluate=True, model_path=None):
+                 bootstrap=20, evaluate=True, model_path=None, weights=None):
     start = time.perf_counter()
     progress('Reading and validating the business universe')
     c, a, d, audit = load_universe(root)
     progress('Building activity embeddings and geographic features')
     feature_start = time.perf_counter()
-    X, traits, primary, feature_meta = build_features(c, a, d, root, demo, model_path)
+    weights = normalize_weights(weights)
+    X, traits, primary, feature_meta = build_features(c, a, d, root, demo, model_path, weights)
     progress('Linking OpenStreetMap venues and municipal hotel statistics')
     enrichment, coverage = enrich(c)
     c['hotel_band'] = enrichment.hotel_band
@@ -134,6 +136,7 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     evidence, tests = significant_features(c, traits, masks, d)
     revenue_map = portfolio.set_index('vat').revenue
     branches = c[c.vat.isin(portfolio.vat)].vat.value_counts()
+    activity_names = dict(zip(d.activity_id, d.description))
     profiles = []
     for j, mask in enumerate(masks):
         members = c[mask]
@@ -147,9 +150,10 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
                    'stability': stable[j]['mean'], 'stability_detail': stable[j], 'confidence_score': confidence,
                    'quality': 'strong' if stable[j]['mean'] >= .75 and len(evidence[j]) >= 2 else 'limited',
                    'significant_features': evidence[j], 'acceptance_cosine_distance': float(fit['radii'][j])}
-        if evidence[j]:
-            profile['title'] = evidence[j][0]['label']
-        progress(f'Writing grounded Greek description {j + 1}/{len(centers)}')
+        positions = np.flatnonzero(mask)
+        profile['activity_mix'] = activity_mix([primary[i] for i in positions], members.vat, activity_names)
+        progress(f'Writing grounded Greek title and description {j + 1}/{len(centers)}')
+        profile.update(make_title(profile, root, model=model, demo=demo))
         profile.update(narrate(profile, root, model=model, demo=demo))
         profiles.append(profile)
     ids = np.array([f'ICP-{i + 1:02}' for i in fit['nearest']], dtype=object)
@@ -161,7 +165,19 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     if evaluate:
         progress('Running an internal 20% VAT holdout against the primary-code baseline')
         validation = evaluate_holdout(X, c, portfolio, primary)
+        if is_custom(weights) and 'metrics' in validation:
+            # Same holdout with the validated default weights, so the user sees the accuracy trade-off.
+            progress('Re-running the holdout with default weights for comparison')
+            default_X = build_features(c, a, d, root, demo, model_path)[0]
+            default = {m['k']: m['recall'] for m in evaluate_holdout(default_X, c, portfolio, primary)['metrics']}
+            for metric in validation['metrics']:
+                metric['default_weights_recall'] = default.get(metric['k'])
     warnings = []
+    if is_custom(weights):
+        shares = ', '.join(f'{name} {value:.0%}' for name, value in weights.items())
+        warnings.append(f'Custom similarity weights ({shares}). These are not the validated defaults '
+                        '(activity 65%, geography 20%, legal_type 10%, age 5%); results may be less accurate. '
+                        'Compare Recall@k with the default weights in the validation view.')
     if demo:
         warnings.append('DEMO: synthetic customer selection/revenue and lexical embeddings; no LLM. Not a challenge submission.')
     if len(lookalikes) < 2000:

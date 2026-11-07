@@ -25,7 +25,7 @@ python run.py --setup-models
 python run.py
 ```
 
-This downloads `intfloat/multilingual-e5-small` to `models/e5-small`, records its exact revision, and runs `ollama pull ministral-3:3b` (Q4_K_M, approximately 3 GB). If Ollama is not installed, the setup command explains how to finish. Ollama must remain running. No API key is needed. You can disconnect the internet after provisioning. On the current workspace, the created environment can also be used directly:
+This downloads `intfloat/multilingual-e5-small` to `models/e5-small`, records its exact revision, and runs `ollama pull qwen3:1.7b` (Q4_K_M, approximately 1.4 GB). If Ollama is not installed, the setup command explains how to finish. Ollama must remain running. No API key is needed. You can disconnect the internet after provisioning. On the current workspace, the created environment can also be used directly:
 
 ```powershell
 .\.venv\Scripts\python.exe run.py --demo
@@ -109,7 +109,7 @@ AI coding assistant disclosure: **OpenAI Codex** was used for architecture, impl
 
 - `python` opens the Microsoft Store: install Python 3.12 and enable PATH, or use `py -3.12`.
 - Missing embeddings: `python run.py --setup-models`; model downloads are explicit, never automatic during analysis.
-- Ollama connection refused: start the Ollama app, or run `ollama serve` in another terminal. Ensure `ollama list` contains `ministral-3:3b`.
+- Ollama connection refused: start the Ollama app, or run `ollama serve` in another terminal. Ensure `ollama list` contains `qwen3:1.7b`.
 - First analysis slow: activity embeddings are computed once per exact model/text fingerprint. The LLM runs only per profile, not for 24,424 businesses.
 - Occupied port: `python run.py --port 8001`.
 - Update data: keep filenames/schema unchanged. Changed source/model files invalidate embedding hashes. A fresh run exports separate results.

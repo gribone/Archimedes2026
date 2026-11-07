@@ -8,7 +8,7 @@ import time
 import httpx
 
 OLLAMA = 'http://127.0.0.1:11434'
-DEFAULT_LLM = 'ministral-3:3b'
+DEFAULT_LLM = 'qwen3:1.7b'
 
 
 def fact_catalog(profile):

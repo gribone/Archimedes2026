@@ -9,6 +9,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2315584a'/%3E%3Cpath d='M12 10h18v5H18v5h10v5H18v8h-6z' fill='white'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/style.css" />
+    <script src="/theme.js"></script>
     <script defer src="/app.js"></script>
   </head>
   <body>
@@ -51,7 +52,8 @@
           ><span id="breadcrumb">Επισκόπηση</span>
         </div>
         <div class="top-right">
-          <span class="pill">● &nbsp; Local runtime</span
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Σκοτεινό θέμα">☾</button
+          ><span class="pill">● &nbsp; Local runtime</span
           ><span class="avatar">FC</span>
         </div>
       </header>
@@ -132,6 +134,107 @@
                     >ⓘ &nbsp; Ο τζίρος χρησιμοποιείται μόνο ως βάρος
                     ανάλυσης.</span
                   ><a href="/api/template">Λήψη προτύπου ↗</a>
+                </div>
+                <div class="more-options">
+                  <button
+                    type="button"
+                    id="options-toggle"
+                    class="options-toggle"
+                    aria-expanded="false"
+                    aria-controls="options-panel"
+                  >
+                    <span class="options-icon" aria-hidden="true">⚙</span
+                    >Περισσότερες επιλογές<span
+                      class="options-badge hidden"
+                      id="options-badge"
+                    ></span
+                    ><span class="chevron" aria-hidden="true">⌄</span>
+                  </button>
+                  <div id="options-panel" class="options-panel hidden">
+                    <section class="option-section">
+                      <label class="switch"
+                        ><input type="checkbox" id="weights-toggle" /><span
+                          class="switch-track"
+                          aria-hidden="true"
+                        ></span
+                        ><span
+                          ><strong>Βάρη ομοιότητας</strong
+                          ><small
+                            >Πόσο μετρά κάθε χαρακτηριστικό στην ομαδοποίηση</small
+                          ></span
+                        ></label
+                      >
+                      <div id="weights-panel" class="option-body hidden">
+                        <p class="weights-warning" role="note">
+                          ⚠ Τα προεπιλεγμένα βάρη (65 / 20 / 10 / 5) έχουν
+                          ελεγχθεί στα δεδομένα. Η αλλαγή τους μπορεί να κάνει
+                          τα αποτελέσματα λιγότερο ακριβή. Μετά την ανάλυση,
+                          συγκρίνετε το Recall με τα προεπιλεγμένα βάρη στην
+                          Τεκμηρίωση.
+                        </p>
+                        <div id="weights-sliders"></div>
+                        <div class="weights-footer">
+                          <span id="weights-total"></span
+                          ><button
+                            type="button"
+                            id="weights-reset"
+                            class="text-button"
+                          >
+                            Επαναφορά προεπιλογών
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                    <section class="option-section">
+                      <label class="switch"
+                        ><input type="checkbox" id="live-toggle" /><span
+                          class="switch-track"
+                          aria-hidden="true"
+                        ></span
+                        ><span
+                          ><strong>Φίλτρο με ζωντανά δεδομένα (ΓΕΜΗ)</strong
+                          ><small
+                            >Έλεγχος αν οι κορυφαίες προτάσεις είναι ακόμη ενεργές</small
+                          ></span
+                        ></label
+                      >
+                      <div id="live-panel" class="option-body hidden">
+                        <p class="weights-warning" role="note">
+                          🌐 Η μόνη λειτουργία που χρησιμοποιεί διαδίκτυο. Οι ΑΦΜ
+                          των επιχειρήσεων που ελέγχονται αποστέλλονται στο
+                          GEMI Open Data API. Στοιχεία του πελατολογίου σας
+                          (ΑΦΜ πελατών, τζίρος) δεν αποστέλλονται ποτέ.
+                        </p>
+                        <label class="field"
+                          ><span>Προσωπικό api_key ΓΕΜΗ</span
+                          ><input
+                            type="password"
+                            id="live-key"
+                            autocomplete="off"
+                            placeholder="Κενό = μεταβλητή GEMI_API_KEY"
+                        /></label>
+                        <label class="field"
+                          ><span>Πλήθος κορυφαίων προτάσεων</span
+                          ><select id="live-limit">
+                            <option value="25">25</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                          </select></label
+                        >
+                        <p class="option-note" id="live-estimate"></p>
+                        <p class="option-note">
+                          Κλειδί: αίτηση στο
+                          <a
+                            href="https://opendata.businessportal.gr/register/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >opendata.businessportal.gr ↗</a
+                          >. Ο έλεγχος ξεκινά αυτόματα μετά την ανάλυση.
+                        </p>
+                      </div>
+                    </section>
+                  </div>
                 </div>
                 <button
                   class="button primary"
@@ -241,12 +344,12 @@
                 <canvas
                   id="map"
                   width="1000"
-                  height="360"
+                  height="860"
                   aria-label="Διάγραμμα γεωγραφικών συντεταγμένων προτεινόμενων επιχειρήσεων"
                 ></canvas>
                 <p class="caption">
-                  Γεωγραφικές συντεταγμένες των πρώτων 2.000 προτάσεων · χωρίς
-                  εξωτερικό χάρτη
+                  Γεωγραφικές συντεταγμένες των πρώτων 2.000 προτάσεων · τοπικός
+                  χάρτης Natural Earth (public domain), χωρίς online πλακίδια
                 </p>
               </section>
               <div class="card candidate-note">
@@ -273,12 +376,28 @@
                   <label class="sr-only" for="profile-filter">Προφίλ</label
                   ><select id="profile-filter">
                     <option value="">Όλα τα προφίλ</option></select
+                  ><label class="sr-only" for="live-filter">Κατάσταση ΓΕΜΗ</label
+                  ><select id="live-filter" class="hidden">
+                    <option value="">Όλες οι καταστάσεις ΓΕΜΗ</option>
+                    <option value="hide-inactive">Απόκρυψη ανενεργών</option>
+                    <option value="active">Μόνο επιβεβαιωμένα ενεργές</option>
+                  </select
                   ><label class="sr-only" for="search">Αναζήτηση</label
                   ><input
                     id="search"
                     placeholder="Αναζήτηση επωνυμίας, πόλης ή ΑΦΜ"
                   />
                 </div>
+              </div>
+              <div id="live-bar" class="live-bar hidden" role="status">
+                <span id="live-message"></span
+                ><span class="live-actions"
+                  ><button type="button" id="live-start" class="text-button">
+                    Έλεγχος στο ΓΕΜΗ →</button
+                  ><button type="button" id="live-stop" class="text-button hidden">
+                    Διακοπή
+                  </button></span
+                >
               </div>
               <div class="table-scroll">
                 <table>

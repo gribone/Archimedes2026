@@ -67,7 +67,7 @@ function error(message) {
 }
 function setBusy(value) {
   busy = value;
-  ["analyze-button", "demo-button", "portfolio"].forEach(
+  ["analyze-button", "demo-button", "portfolio", "weights-toggle", "live-toggle"].forEach(
     (id) => ($(id).disabled = value),
   );
   $("progress").classList.toggle("hidden", !value);
@@ -88,11 +88,180 @@ async function request(url, options) {
     );
   return body;
 }
+const DEFAULT_WEIGHTS = { activity: 65, geography: 20, legal_type: 10, age: 5 };
+const WEIGHT_LABELS = {
+  activity: "Δραστηριότητα",
+  geography: "Γεωγραφία",
+  legal_type: "Νομική μορφή",
+  age: "Ηλικία επιχείρησης",
+};
+const weights = { ...DEFAULT_WEIGHTS };
+function weightsChanged() {
+  return Object.keys(DEFAULT_WEIGHTS).some(
+    (k) => weights[k] !== DEFAULT_WEIGHTS[k],
+  );
+}
+function updateWeightSummary() {
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  document.querySelectorAll(".weight-row").forEach((row) => {
+    const k = row.querySelector("input").dataset.weight;
+    row.querySelector("b").textContent =
+      (total ? Math.round((weights[k] / total) * 100) : 0) + "%";
+  });
+  $("weights-total").textContent = !total
+    ? "Τουλάχιστον ένα βάρος πρέπει να είναι πάνω από 0"
+    : weightsChanged()
+      ? "Προσαρμοσμένα βάρη · κανονικοποιούνται στο 100%"
+      : "Προεπιλεγμένα βάρη";
+  $("weights-total").classList.toggle("weights-custom", weightsChanged());
+}
+function renderWeights() {
+  $("weights-sliders").innerHTML = Object.keys(DEFAULT_WEIGHTS)
+    .map(
+      (k) =>
+        `<label class="weight-row"><span>${WEIGHT_LABELS[k]}</span><input type="range" min="0" max="100" step="5" value="${weights[k]}" data-weight="${k}" aria-label="${WEIGHT_LABELS[k]}" /><b></b></label>`,
+    )
+    .join("");
+  updateWeightSummary();
+}
+$("weights-sliders").addEventListener("input", (event) => {
+  const key = event.target.dataset.weight;
+  if (!key) return;
+  weights[key] = Number(event.target.value);
+  updateWeightSummary();
+});
+$("weights-toggle").addEventListener("change", (event) => {
+  $("weights-panel").classList.toggle("hidden", !event.target.checked);
+  if (event.target.checked) renderWeights();
+});
+$("weights-reset").addEventListener("click", () => {
+  Object.assign(weights, DEFAULT_WEIGHTS);
+  renderWeights();
+});
+function updateOptionsBadge() {
+  const active = [
+    $("weights-toggle").checked && weightsChanged(),
+    $("live-toggle").checked,
+  ].filter(Boolean).length;
+  $("options-badge").textContent = active ? `${active} ενεργ${active === 1 ? "ή" : "ές"}` : "";
+  $("options-badge").classList.toggle("hidden", !active);
+}
+$("options-toggle").addEventListener("click", () => {
+  const open = $("options-toggle").getAttribute("aria-expanded") !== "true";
+  $("options-toggle").setAttribute("aria-expanded", String(open));
+  $("options-panel").classList.toggle("hidden", !open);
+});
+$("weights-sliders").addEventListener("input", updateOptionsBadge);
+$("weights-reset").addEventListener("click", updateOptionsBadge);
+$("weights-toggle").addEventListener("change", updateOptionsBadge);
+function updateLiveEstimate() {
+  const limit = Number($("live-limit").value);
+  const minutes = Math.ceil((limit * 60) / 8 / 60);
+  $("live-estimate").textContent =
+    `Έως ~${minutes} λεπτά για ${limit} επιχειρήσεις (όριο ΓΕΜΗ ~8 αιτήματα/λεπτό). Αποτελέσματα των τελευταίων 7 ημερών επαναχρησιμοποιούνται.`;
+}
+$("live-toggle").addEventListener("change", (event) => {
+  $("live-panel").classList.toggle("hidden", !event.target.checked);
+  updateLiveEstimate();
+  updateOptionsBadge();
+  renderLive();
+});
+$("live-limit").addEventListener("change", updateLiveEstimate);
+
+// Live GEMI check of the top prospects (server-side; opt-in).
+let live = null,
+  liveTimer = null;
+const LIVE_LABELS = {
+  active: "Ενεργή",
+  inactive: "Ανενεργή",
+  not_found: "Δεν βρέθηκε",
+  error: "Σφάλμα",
+};
+function liveBadge(vat) {
+  const result = live?.results[vat];
+  if (!result) return "";
+  const text = result.status === "inactive" && result.description ? result.description : LIVE_LABELS[result.status];
+  return ` <span class="live-badge live-${result.status}" title="ΓΕΜΗ · ${escapeHTML(result.checked_at || "")}">● ${escapeHTML(text)}</span>`;
+}
+function renderLive() {
+  const show = Boolean(state) && ($("live-toggle").checked || live);
+  $("live-bar").classList.toggle("hidden", !show);
+  $("live-filter").classList.toggle("hidden", !live);
+  if (!show) return;
+  const running = live?.status === "running";
+  $("live-start").classList.toggle("hidden", running);
+  $("live-start").textContent = live ? "Νέος έλεγχος στο ΓΕΜΗ →" : "Έλεγχος στο ΓΕΜΗ →";
+  $("live-stop").classList.toggle("hidden", !running);
+  if (!live) {
+    $("live-message").textContent = "Έλεγχος ενεργής κατάστασης των κορυφαίων προτάσεων στο ΓΕΜΗ.";
+    return;
+  }
+  const counts = Object.values(live.results).reduce((acc, r) => ((acc[r.status] = (acc[r.status] || 0) + 1), acc), {});
+  const summary = ["active", "inactive", "not_found", "error"]
+    .filter((k) => counts[k])
+    .map((k) => `${LIVE_LABELS[k]}: ${counts[k]}`)
+    .join(" · ");
+  $("live-message").textContent = live.message + (summary ? ` — ${summary}` : "");
+  $("live-bar").classList.toggle("live-error", live.status === "error");
+}
+async function startLive() {
+  if (!jobId || !state) return;
+  const form = new FormData();
+  form.append("api_key", $("live-key").value);
+  form.append("limit", $("live-limit").value);
+  try {
+    live = await request(`/api/jobs/${jobId}/live-check`, {
+      method: "POST",
+      headers: { "X-ForceCRM": "local" },
+      body: form,
+    });
+    renderLive();
+    pollLive();
+  } catch (err) {
+    live = { status: "error", message: err.message, results: live?.results || {} };
+    renderLive();
+  }
+}
+async function pollLive() {
+  clearTimeout(liveTimer);
+  const current = jobId;
+  try {
+    const data = await request(`/api/jobs/${current}/live`);
+    if (current !== jobId) return;
+    live = data;
+    renderLive();
+    renderCandidates();
+    if (!$("view-prospects").classList.contains("hidden")) drawMap();
+    if (data.status === "running") liveTimer = setTimeout(pollLive, 3000);
+  } catch (err) {
+    live = { ...(live || { results: {} }), status: "error", message: err.message };
+    renderLive();
+  }
+}
+$("live-start").addEventListener("click", startLive);
+$("live-stop").addEventListener("click", async () => {
+  try {
+    await request(`/api/jobs/${jobId}/live-check/stop`, { method: "POST", headers: { "X-ForceCRM": "local" } });
+  } catch {}
+  pollLive();
+});
+$("live-filter").addEventListener("input", () => {
+  page = 0;
+  renderCandidates();
+  drawMap();
+});
 async function startAnalysis(demo) {
   if (busy) return;
   error("");
   const form = new FormData();
   form.append("demo", String(demo));
+  if ($("weights-toggle").checked && weightsChanged()) {
+    if (!Object.values(weights).some((v) => v > 0)) {
+      error("Τουλάχιστον ένα βάρος πρέπει να είναι πάνω από 0.");
+      return;
+    }
+    form.append("weights", JSON.stringify(weights));
+  }
   if (!demo) {
     const file = $("portfolio").files[0];
     if (!file) {
@@ -102,6 +271,9 @@ async function startAnalysis(demo) {
     form.append("file", file);
   }
   setBusy(true);
+  clearTimeout(liveTimer);
+  live = null;
+  $("live-filter").value = "";
   $("notice").classList.add("hidden");
   // Existing results are cleared when a new job begins to avoid stale exports.
   state = null;
@@ -146,6 +318,8 @@ async function poll() {
       state = job;
       render();
       setBusy(false);
+      renderLive();
+      if ($("live-toggle").checked) startLive();
       return;
     }
     setTimeout(poll, 1500);
@@ -213,11 +387,16 @@ function render() {
   renderValidation();
 }
 function filtered() {
+  const liveFilter = $("live-filter").value;
   const profile = $("profile-filter").value,
     query = $("search").value.toLocaleLowerCase("el-GR");
   return state.candidates.filter(
     (c) =>
       (!profile || c.profile_id === profile) &&
+      (!liveFilter ||
+        (liveFilter === "active"
+          ? live?.results[c.vat]?.status === "active"
+          : live?.results[c.vat]?.status !== "inactive")) &&
       (!query ||
         [c.company_name_el, c.city, c.vat].some((v) =>
           String(v).toLocaleLowerCase("el-GR").includes(query),
@@ -234,7 +413,7 @@ function renderCandidates() {
       .slice(page * pageSize, (page + 1) * pageSize)
       .map(
         (c) =>
-          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong><small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
+          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
       )
       .join("") ||
     '<tr><td colspan="5">Δεν βρέθηκαν επιχειρήσεις για αυτά τα φίλτρα.</td></tr>';
@@ -259,64 +438,138 @@ $("next-page").addEventListener("click", () => {
   page++;
   renderCandidates();
 });
+document.addEventListener("themechange", () => {
+  if (!$("view-prospects")?.classList.contains("hidden")) drawMap();
+});
+const MAP_BOUNDS = { west: 19.2, east: 29.9, south: 34.7, north: 41.9 };
+const PROFILE_COLORS = ["#256653", "#c29b51", "#6a80a1", "#8c7092", "#a06e50", "#7f9856"];
+let greeceMap = null;
+fetch("/greece-map.json")
+  .then((response) => (response.ok ? response.json() : null))
+  .then((data) => {
+    greeceMap = data;
+    if (state && !$("view-prospects").classList.contains("hidden")) drawMap();
+  })
+  .catch(() => {});
+function mapProjection(w, h) {
+  // Equirectangular with cos(latitude) correction, so Greece keeps its real proportions.
+  const kx = Math.cos((((MAP_BOUNDS.north + MAP_BOUNDS.south) / 2) * Math.PI) / 180);
+  const spanX = (MAP_BOUNDS.east - MAP_BOUNDS.west) * kx,
+    spanY = MAP_BOUNDS.north - MAP_BOUNDS.south;
+  const pad = 36,
+    scale = Math.min((w - 2 * pad) / spanX, (h - 2 * pad) / spanY);
+  const ox = (w - spanX * scale) / 2,
+    oy = (h - spanY * scale) / 2;
+  return (lon, lat) => [
+    ox + (lon - MAP_BOUNDS.west) * kx * scale,
+    oy + (MAP_BOUNDS.north - lat) * scale,
+  ];
+}
+function drawRings(ctx, rings, project) {
+  ctx.beginPath();
+  rings.forEach((ring) => {
+    ring.forEach(([lon, lat], i) => {
+      const [x, y] = project(lon, lat);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.closePath();
+  });
+}
 function drawMap() {
   if (!state) return;
   const canvas = $("map"),
     ctx = canvas.getContext("2d");
   const w = canvas.width,
     h = canvas.height;
+  const css = getComputedStyle(document.documentElement);
+  const token = (name) => css.getPropertyValue(name).trim();
+  const project = mapProjection(w, h);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#fafcf8";
+  ctx.fillStyle = token("--map-sea");
   ctx.fillRect(0, 0, w, h);
-  ctx.font = "12px Segoe UI";
-  ctx.strokeStyle = "#e4eadd";
-  ctx.fillStyle = "#8c9a85";
-  for (let lon = 19; lon <= 29; lon++) {
-    const x = 45 + ((lon - 19) / 10) * (w - 80);
+  // Graticule
+  ctx.strokeStyle = token("--map-grid");
+  ctx.fillStyle = token("--map-label");
+  ctx.font = "13px Segoe UI, sans-serif";
+  ctx.lineWidth = 1;
+  for (let lon = 20; lon <= 29; lon++) {
+    const [x] = project(lon, MAP_BOUNDS.south);
     ctx.beginPath();
-    ctx.moveTo(x, 15);
-    ctx.lineTo(x, h - 30);
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
     ctx.stroke();
-    ctx.fillText(lon + "° E", x - 12, h - 8);
+    ctx.fillText(lon + "°E", x + 3, h - 8);
   }
-  for (let lat = 35; lat <= 42; lat++) {
-    const y = 15 + ((42 - lat) / 7) * (h - 45);
+  for (let lat = 35; lat <= 41; lat++) {
+    const [, y] = project(MAP_BOUNDS.west, lat);
     ctx.beginPath();
-    ctx.moveTo(45, y);
-    ctx.lineTo(w - 35, y);
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
     ctx.stroke();
-    ctx.fillText(lat + "° N", 3, y + 4);
+    ctx.fillText(lat + "°N", 6, y - 4);
   }
-  const colors = [
-    "#256653",
-    "#c29b51",
-    "#6a80a1",
-    "#8c7092",
-    "#a06e50",
-    "#7f9856",
-  ];
-  filtered()
-    .slice(0, 2000)
-    .forEach((c) => {
-      if (
-        c.latitude === null ||
-        c.longitude === null ||
-        c.latitude < 35 ||
-        c.latitude > 42 ||
-        c.longitude < 19 ||
-        c.longitude > 29
-      )
-        return;
-      const x = 45 + ((c.longitude - 19) / 10) * (w - 80),
-        y = 15 + ((42 - c.latitude) / 7) * (h - 45);
-      ctx.globalAlpha = 0.65;
-      ctx.fillStyle =
-        colors[(Number(c.profile_id.split("-")[1]) - 1) % colors.length];
+  if (greeceMap) {
+    ctx.lineJoin = "round";
+    drawRings(ctx, greeceMap.neighbours, project);
+    ctx.fillStyle = token("--map-neighbour");
+    ctx.fill("evenodd");
+    ctx.strokeStyle = token("--map-border");
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    drawRings(ctx, greeceMap.greece, project);
+    ctx.fillStyle = token("--map-land");
+    ctx.fill("evenodd");
+    ctx.strokeStyle = token("--map-coast");
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  const rows = filtered().slice(0, 2000);
+  const profiles = new Set();
+  rows.forEach((c) => {
+    if (c.latitude === null || c.longitude === null) return;
+    if (c.longitude < MAP_BOUNDS.west || c.longitude > MAP_BOUNDS.east || c.latitude < MAP_BOUNDS.south || c.latitude > MAP_BOUNDS.north)
+      return;
+    const [x, y] = project(c.longitude, c.latitude);
+    const index = (Number(c.profile_id.split("-")[1]) - 1) % PROFILE_COLORS.length;
+    profiles.add(c.profile_id);
+    const status = live?.results[c.vat]?.status;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = PROFILE_COLORS[index];
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (status === "inactive") {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = token("--danger");
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fill();
-    });
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  });
   ctx.globalAlpha = 1;
+  // Legend
+  const legend = [...profiles].sort();
+  if (live && Object.values(live.results).some((r) => r.status === "inactive")) legend.push("inactive");
+  ctx.font = "600 14px Segoe UI, sans-serif";
+  legend.forEach((id, i) => {
+    const y = 30 + i * 24,
+      x = w - 190;
+    if (id === "inactive") {
+      ctx.strokeStyle = token("--danger");
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 5, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = PROFILE_COLORS[(Number(id.split("-")[1]) - 1) % PROFILE_COLORS.length];
+      ctx.beginPath();
+      ctx.arc(x, y - 5, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = token("--ink");
+    ctx.fillText(id === "inactive" ? "Ανενεργή (ΓΕΜΗ)" : id, x + 14, y);
+  });
 }
 function renderValidation() {
   const r = state.report,
@@ -324,8 +577,10 @@ function renderValidation() {
   const metrics = v?.metrics || [];
   const e = r.enrichment;
   const coverage = e ? `<section class="card wide"><h2>Εμπλουτισμός καταστημάτων</h2><p>OpenStreetMap: ${number(e.osm_status_counts.matched || 0)} συνδέσεις σε ${number(e.venue_count)} καταστήματα (${percent(e.match_rate_all)}). Μεταξύ όσων έχουν GPS και διακριτικό όνομα: ${percent(e.match_rate_eligible)}. Οι αμφίβολες συνδέσεις μένουν ανοικτές.</p><p>ΕΛΣΤΑΤ: ${number(e.tourism_covered)} καταστήματα έχουν διαθέσιμες διανυκτερεύσεις ξενοδοχείων 2024 ανά κάτοικο του δήμου (απογραφή 2021).</p><a class="button outline" href="/api/jobs/${jobId}/export/enrichment.csv">↓ Στοιχεία ανά κατάστημα</a></section>` : "";
+  const blockWeights = r.feature_configuration.block_weights;
+  const customWeights = Boolean(r.feature_configuration.custom_weights);
   $("validation-content").innerHTML =
-    `<div class="validation-grid">${coverage}<section class="card"><h2>Εσωτερικός έλεγχος ανάκτησης</h2><p>20% των ΑΦΜ αποκρύπτονται πριν από την εκπαίδευση. Όλα τα καταστήματά τους παραμένουν μαζί. Αυτός δεν είναι ο κρυφός έλεγχος του διοργανωτή.</p>${r.demo ? "<p><strong>Demo δεδομένα: οι παρακάτω τιμές δεν μετρούν πραγματική απόδοση πωλήσεων.</strong></p>" : ""}<table><thead><tr><th>Μέτρο</th><th>Μοντέλο</th><th>Baseline</th><th>Διαφορά</th></tr></thead><tbody>${metrics.map((m) => `<tr><td>Recall@${m.k}</td><td>${percent(m.recall)}</td><td>${percent(m.baseline_recall)}</td><td>${(m.absolute_uplift * 100).toFixed(1)} π.μ.</td></tr>`).join("")}</tbody></table><p>Baseline: συχνότητα της κύριας δραστηριότητας στο πελατολόγιο εκπαίδευσης.</p></section><section class="card"><h2>Ποιότητα δεδομένων και ανάλυσης</h2><ul><li>${number(r.data_audit.venues)} καταστήματα · ${number(r.data_audit.businesses)} ΑΦΜ</li><li>Κάλυψη GPS: ${percent(r.data_audit.gps_coverage)}</li><li>Μέσο Adjusted Rand Index: ${r.bootstrap_ari.toFixed(3)}</li><li>${number(r.hypotheses_tested)} στατιστικές υποθέσεις εξετάστηκαν</li><li>${number(r.rejected_venues)} καταστήματα χωρίς αντιστοίχιση (NONE)</li><li>Διάρκεια: ${r.performance.seconds.toFixed(1)} δευτ. · RAM στο τέλος: ${r.performance.rss_mb_at_finish.toFixed(0)} MB</li></ul></section><section class="card wide"><h2>Πώς λειτουργεί — και πού χρειάζεται προσοχή</h2><p>Η ομοιότητα συνδυάζει δραστηριότητες (65%), γεωγραφία (20%), νομική μορφή (10%) και ηλικία (5%). Οι κύριες δραστηριότητες έχουν μεγαλύτερο βάρος από τις συναφείς δευτερεύουσες. Ο τζίρος κατανέμεται στα καταστήματα κάθε ΑΦΜ, ώστε να μην διπλομετράται.</p><p>Η στατιστική τεκμηρίωση είναι διερευνητική: οι ομάδες έχουν σχηματιστεί από τα ίδια δεδομένα. Μια σταθερή ομάδα δεν συνεπάγεται ότι όλοι οι πελάτες της έχουν την ίδια πραγματική δραστηριότητα. Ένα ΑΦΜ με διαφορετικά καταστήματα μπορεί να συμμετέχει σε περισσότερα προφίλ.</p><p>Η εφαρμογή προτείνει επιχειρήσεις για ανθρώπινη αξιολόγηση. Δεν υπολογίζει πιστοληπτική ικανότητα, φερεγγυότητα ή πιθανότητα αγοράς. Οι περιγραφές με ένδειξη AI παράγονται από τοπικό μοντέλο μέσω επιλογής τεκμηριωμένων ελληνικών προτάσεων.</p><div class="downloads">${["profiles.json", "assignments.csv", "lookalikes.csv", "report.json"].map((f) => `<a class="button outline" href="/api/jobs/${jobId}/export/${f}">↓ ${f}</a>`).join(" ")}</div><details><summary>Πλήρης αναφορά μεθοδολογίας και αναπαραγωγής</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details></section></div>`;
+    `<div class="validation-grid">${coverage}<section class="card"><h2>Εσωτερικός έλεγχος ανάκτησης</h2><p>20% των ΑΦΜ αποκρύπτονται πριν από την εκπαίδευση. Όλα τα καταστήματά τους παραμένουν μαζί. Αυτός δεν είναι ο κρυφός έλεγχος του διοργανωτή.</p>${r.demo ? "<p><strong>Demo δεδομένα: οι παρακάτω τιμές δεν μετρούν πραγματική απόδοση πωλήσεων.</strong></p>" : ""}${customWeights ? `<p class="weights-warning">⚠ Η ανάλυση έγινε με προσαρμοσμένα βάρη. Η στήλη «Προεπιλεγμένα βάρη» δείχνει τον ίδιο έλεγχο με τα ελεγμένα βάρη.</p>` : ""}<table><thead><tr><th>Μέτρο</th><th>Μοντέλο</th>${customWeights ? "<th>Προεπιλεγμένα βάρη</th>" : ""}<th>Baseline</th><th>Διαφορά</th></tr></thead><tbody>${metrics.map((m) => `<tr><td>Recall@${m.k}</td><td>${percent(m.recall)}</td>${customWeights ? `<td>${m.default_weights_recall == null ? "—" : percent(m.default_weights_recall)}</td>` : ""}<td>${percent(m.baseline_recall)}</td><td>${(m.absolute_uplift * 100).toFixed(1)} π.μ.</td></tr>`).join("")}</tbody></table><p>Baseline: συχνότητα της κύριας δραστηριότητας στο πελατολόγιο εκπαίδευσης.</p></section><section class="card"><h2>Ποιότητα δεδομένων και ανάλυσης</h2><ul><li>${number(r.data_audit.venues)} καταστήματα · ${number(r.data_audit.businesses)} ΑΦΜ</li><li>Κάλυψη GPS: ${percent(r.data_audit.gps_coverage)}</li><li>Μέσο Adjusted Rand Index: ${r.bootstrap_ari.toFixed(3)}</li><li>${number(r.hypotheses_tested)} στατιστικές υποθέσεις εξετάστηκαν</li><li>${number(r.rejected_venues)} καταστήματα χωρίς αντιστοίχιση (NONE)</li><li>Διάρκεια: ${r.performance.seconds.toFixed(1)} δευτ. · RAM στο τέλος: ${r.performance.rss_mb_at_finish.toFixed(0)} MB</li></ul></section><section class="card wide"><h2>Πώς λειτουργεί — και πού χρειάζεται προσοχή</h2><p>Η ομοιότητα συνδυάζει δραστηριότητες (${percent(blockWeights.activity)}), γεωγραφία (${percent(blockWeights.geography)}), νομική μορφή (${percent(blockWeights.legal_type)}) και ηλικία (${percent(blockWeights.age)})${customWeights ? " — προσαρμοσμένα βάρη" : ""}. Οι κύριες δραστηριότητες έχουν μεγαλύτερο βάρος από τις συναφείς δευτερεύουσες. Ο τζίρος κατανέμεται στα καταστήματα κάθε ΑΦΜ, ώστε να μην διπλομετράται.</p><p>Η στατιστική τεκμηρίωση είναι διερευνητική: οι ομάδες έχουν σχηματιστεί από τα ίδια δεδομένα. Μια σταθερή ομάδα δεν συνεπάγεται ότι όλοι οι πελάτες της έχουν την ίδια πραγματική δραστηριότητα. Ένα ΑΦΜ με διαφορετικά καταστήματα μπορεί να συμμετέχει σε περισσότερα προφίλ.</p><p>Η εφαρμογή προτείνει επιχειρήσεις για ανθρώπινη αξιολόγηση. Δεν υπολογίζει πιστοληπτική ικανότητα, φερεγγυότητα ή πιθανότητα αγοράς. Οι περιγραφές με ένδειξη AI παράγονται από τοπικό μοντέλο μέσω επιλογής τεκμηριωμένων ελληνικών προτάσεων.</p><div class="downloads">${["profiles.json", "assignments.csv", "lookalikes.csv", "report.json"].map((f) => `<a class="button outline" href="/api/jobs/${jobId}/export/${f}">↓ ${f}</a>`).join(" ")}</div><details><summary>Πλήρης αναφορά μεθοδολογίας και αναπαραγωγής</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details></section></div>`;
 }
 request("/api/status")
   .then((s) => {
@@ -336,7 +591,7 @@ request("/api/status")
       percent(s.data.gps_coverage) +
       " με GPS";
     $("model-status").textContent = s.embedding_ready
-      ? "Το embedding model είναι διαθέσιμο. Απαιτείται το Ollama με ministral-3:3b."
+      ? "Το embedding model είναι διαθέσιμο. Απαιτείται το Ollama με qwen3:1.7b."
       : "Για πλήρη ανάλυση: python run.py --setup-models · Το demo λειτουργεί χωρίς μοντέλα.";
   })
   .catch((err) => error(err.message));
