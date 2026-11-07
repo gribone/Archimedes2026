@@ -90,6 +90,8 @@ Windows: replace `.venv/bin/python` with `.\.venv\Scripts\python.exe`.
 
 ## Methodology
 
+See [Architecture](docs/ARCHITECTURE.md) for the full pipeline diagram, the ranking formula and why recommendations are deterministic (same inputs give byte-identical `lookalikes.csv`).
+
 1. **Business representation.** Normalize semantic activity vectors, then concatenate weighted blocks: activity 65%, geography 20%, legal form 10%, enterprise age 5%. E5 uses the required `query: ` prefix. Primary descriptions have 85% of the activity contribution; up to three semantically related secondary foodservice codes share 15%. Duplicates are removed, auxiliary/unknown types ignored. A missing secondary block copies the primary representation, so merely registering more codes never incurs a count penalty. More codes can still change business meaning; semantic filtering is a heuristic, not proof that an activity is active.
 2. **Spatial features.** Fixed geographic radial basis anchors across Greece (130 km scale) plus prefecture. GPS missingness is encoded explicitly. Age uses the fixed reference date `2026-11-01`; no moving wall-clock features. This supplies geographic ICP features without external calls or map tiles. [Venue and market enrichment](docs/ENRICHMENT.md) runs offline using the bundled OSM and ELSTAT snapshots.
 3. **Revenue and branches.** Use square-root revenue weights capped at the portfolio's 95th percentile, normalized and divided by venue count per VAT. Raw revenue, also divided across venues, determines profile revenue shares. Shares sum to one even when a chain spans profiles. Customer counts are unique within each profile, so their sum can exceed the portfolio count when a VAT has venues in multiple profiles.
