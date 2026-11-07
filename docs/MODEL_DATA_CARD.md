@@ -47,4 +47,4 @@ The seeded split trained on the other 240 customers. The organizer retains a sep
 
 Self-declared activities may be inactive. GPS can be missing or inaccurate. Multiple venues may represent different business types under a single VAT. Statistical tests performed after clustering provide exploratory evidence. Fit confidence measures similarity to a cluster and has no calibration against conversion or credit outcomes. Human reviewers can inspect sample sizes, lift, corrected p-values, stability and the evidence for every generated sentence. Profiles concern B2B outreach. Creditworthiness, solvency and eligibility decisions fall outside the intended use.
 
-OpenAI Codex assisted architecture, implementation, documentation, testing and debugging. Runtime inference uses the local models described here.
+OpenAI Codex assisted architecture, implementation, documentation, testing and debugging. Claude Code (Anthropic) assisted code review, holdout verification, setup fixes, the per-sentence grounded Greek narration and documentation. Runtime inference uses only the local models described here.

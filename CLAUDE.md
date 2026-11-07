@@ -18,7 +18,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - Needs **Python 3.12** (3.13 resolves; 3.11/3.14 fail on pinned wheels; `run.py` checks this). This Mac's `python3` is 3.14 → use `python3.12` or `$(uv python find 3.12)`.
 - Copy the 3 CSVs (`../Data/data/vwHack*.csv`) into the **repo root** next to `run.py`; the Excel is uploaded in the browser (or passed to the CLI). `*.csv`/`*.xlsx` are gitignored.
 - `python3.12 run.py --first-run` → creates `.venv`, installs deps, downloads `intfloat/multilingual-e5-small` to `models/e5-small`, `ollama pull ministral-3:3b`, serves http://127.0.0.1:8000. Verified on a clean clone on this Mac.
-- CLI: `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real`; holdout audit: `.venv/bin/python -m scripts.audit_ranking`; tests: `.venv/bin/python -m pytest -q` (15 pass).
+- CLI: `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real`; holdout audit: `.venv/bin/python -m scripts.audit_ranking`; tests: `.venv/bin/python -m pytest -q` (18 pass).
 - Ollama installed via Homebrew (`ollama serve`); model `ministral-3:3b` pulled. Mac has only 8 GB RAM.
 - scipy 1.15.3's macOS wheel fails to load on this macOS (dyld `__thread_bss` error) → pinned scipy 1.18.1 / numpy 2.5.4.
 
@@ -33,11 +33,11 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 
 ### Open problems on `main` (priority order)
 1. PDF model card (`docs/ForceCRM-Model-Data-Card.pdf`) still says 13/60; `scripts/build_card.py` only finds Windows/Linux fonts, so it can't rebuild on macOS. The Markdown card is fixed.
-2. Greek descriptions (A6): numbers are correct and each sentence is linked to a fact (`claims`), but wording is clumsy/wrong ("τόπος καταγωγής" for location, "άτομα" for businesses, repeated sentence, grammar errors, overstated "κυριαρχεί"). Fix via templates/prompt in `forcecrm/narrative.py` or a stronger Greek LLM (Krikri-8B, EuroLLM-9B).
-3. Descriptions don't state stability/confidence in the text (A6 requires it); they're only in JSON/UI.
+2. ~~Greek descriptions~~ — fixed 2026-11-07 (uncommitted at time of writing): `narrative.py` now renders each fact as a Greek template, Ministral rewrites one sentence at a time (chat + few-shot), deterministic checks (numbers, %, names, banned wording/grammar patterns) reject bad rewrites, failures fall back to the template. Typically 3–5 of 6 sentences are LLM-written; ~30–50 s/profile on this Mac. Still no human fluency rating; a stronger Greek LLM (Krikri-8B, EuroLLM-9B) remains an option.
+3. ~~Stability/confidence not in text~~ — fixed: every description ends with a computed quality/stability(mean+p10)/confidence sentence.
 4. Profiles are almost purely geographic; ΚΑΔ/activity semantics barely appear (A1 risk for judging).
 5. Untested: browser flow (upload → profiles → export), Windows/Linux clean install, human fluency ratings.
-6. AI-tools declaration in README lists only OpenAI Codex; Claude Code was also used (review + setup/docs fix) → add it.
+6. ~~AI-tools declaration~~ — fixed: README and Markdown model card list Claude Code too (PDF card still stale, see 1).
 7. Known limits the README admits: uncalibrated confidence; exploratory stats (same data clusters and tests); LLM timings in docs are from the original author's Windows laptop.
 
 ### Local leftovers

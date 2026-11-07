@@ -76,7 +76,7 @@ def build():
     table([['Embedding model','Family hit@5','ms / description','Process RSS³']] + [[r['model_path'].split('/')[-1],f'{r["family_hit_at_5"]:.1%}',f'{r["seconds_per_description"]*1000:.1f}',f'{r["rss_mb_after_encoding"]:.0f} MiB'] for r in embedding], [160,100,125,114])
     add('³ Sampled after encoding and inclusive of Python allocations. E5-small matched E5-base on this code-family proxy and required less time and memory. Expert judgments would provide a direct test of semantic relevance.')
     add('Local Greek narrative drafting', 'h')
-    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. The LLM selects evidence IDs and Greek sentence variants under a JSON schema. Each displayed sentence links to its source statistic. Generated descriptions carry an AI label.')
+    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. The LLM rewrites one templated fact sentence at a time under a JSON schema; numbers, percentages and names are checked against the source fact, and failing sentences keep their verified template. Each displayed sentence links to its source statistic and records its author. Generated descriptions carry an AI label.')
     rows = [['LLM','Valid drafts / attempted','Generation time⁴']]
     for r in language:
         attempts = r.get('profiles', [])

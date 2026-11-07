@@ -12,7 +12,7 @@ Sales representatives, the uploading company, and businesses listed as prospecti
 
 ## What can the end user inspect?
 
-Each profile exposes counts, revenue share, measured traits, Fisher p-values, globally adjusted q-values, lift, membership stability, fit confidence, and acceptance distance. Every displayed narrative sentence maps to a fact identifier. AI selection/ordering is explicitly labeled; demo text is labeled as a deterministic template. Candidate justifications identify matching supported traits when available and otherwise state the model's feature basis. Exploratory candidates outside the acceptance radius are identified, not disguised as confident matches.
+Each profile exposes counts, revenue share, measured traits, Fisher p-values, globally adjusted q-values, lift, membership stability, fit confidence, and acceptance distance. Every displayed narrative sentence maps to a fact identifier and records whether the local LLM or a verified template wrote it. AI text is explicitly labeled, and the description itself states profile quality, stability and fit confidence. Demo text is labeled as a deterministic template. Candidate justifications identify matching supported traits when available and otherwise state the model's feature basis. Exploratory candidates outside the acceptance radius are identified, not disguised as confident matches.
 
 ## Where can it fail, and how is this detected?
 
@@ -22,7 +22,7 @@ Each profile exposes counts, revenue share, measured traits, Fisher p-values, gl
 | Branch duplication or leakage | VAT normalization, revenue divided by venue count, VAT bootstrap and VAT holdout, existing-customer exclusion across all venues |
 | Chance features | Minimum five independent VATs, lift threshold, global BH correction; explicitly exploratory post-clustering inference |
 | Unstable cohorts | Per-profile bootstrap Jaccard and global ARI; limited-quality label |
-| Hallucinated text | Restricted evidence IDs and sentence variants; invalid LLM output stops real analysis |
+| Hallucinated text | One sentence per fact; numbers, percentages and names checked against the source fact; misleading wording rejected; failing sentences fall back to verified templates |
 | Poor retrieval | Internal holdout against primary-NACE baseline; real hidden-set performance cannot be inferred from the demo |
 | Geographic/legal-form bias | Visible feature weights and distributions; similarity is never presented as credit or conversion probability |
 | Broken/absent local models | Explicit setup errors; no silent cloud call or demo substitution |

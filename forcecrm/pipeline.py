@@ -14,7 +14,7 @@ from .clustering import discover, stability
 from .data import FILES, load_universe
 from .evidence import significant_features
 from .features import build_features
-from .narrative import narrate, DEFAULT_LLM
+from .narrative import narrate, profile_title, DEFAULT_LLM
 from .affinity import market_affinity
 from .enrichment import enrich
 
@@ -148,7 +148,7 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
                    'quality': 'strong' if stable[j]['mean'] >= .75 and len(evidence[j]) >= 2 else 'limited',
                    'significant_features': evidence[j], 'acceptance_cosine_distance': float(fit['radii'][j])}
         if evidence[j]:
-            profile['title'] = evidence[j][0]['label']
+            profile['title'] = profile_title(profile)
         progress(f'Writing grounded Greek description {j + 1}/{len(centers)}')
         profile.update(narrate(profile, root, model=model, demo=demo))
         profiles.append(profile)

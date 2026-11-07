@@ -128,3 +128,40 @@ def test_many_irrelevant_secondary_codes_do_not_penalize_primary(monkeypatch, tm
                        'kind':['primary']*2+['secondary']*30})
     X,*_ = features.build_features(c,a,d,tmp_path)
     assert np.allclose(X[0],X[1])
+
+
+def test_sentence_checks_reject_known_llm_errors():
+    from forcecrm.narrative import check_sentence
+    fact = ('30 από τους 126 πελάτες (24%) βρίσκονται στην Περιφερειακή Ενότητα ΗΡΑΚΛΕΙΟΥ, '
+            '8,6 φορές συχνότερα από ό,τι στο σύνολο των επιχειρήσεων εστίασης.')
+    good = 'Στην Περιφερειακή Ενότητα Ηρακλείου βρίσκονται 30 από τους 126 πελάτες (24%), 8,6 φορές συχνότερα.'
+    assert check_sentence(good, fact).startswith('Στην')
+    for bad in ['Το 30% των πελατών βρίσκεται στην Π.Ε. ΗΡΑΚΛΕΙΟΥ, 8,6 φορές συχνότερα.',   # invented percentage
+                'Στο Ηράκλειο βρίσκονται 30 από τους 126 πελάτες (24%).',                     # changed name
+                'Στην Περιφερειακή Ενότητα ΗΡΑΚΛΕΙΟΥ βρίσκονται περίπου 30 από 126 άτομα.',  # hedging, «άτομα»
+                'Στην Περιφερειακή Ενότητα ΗΡΑΚΛΕΙΟΥ κυριαρχούν οι πελάτες, 8,6 φορές συχνότερα.',  # dropped count
+                'Στα 126 πελάτες, 30 βρίσκονται στην Περιφερειακή Ενότητα ΗΡΑΚΛΕΙΟΥ.']:      # wrong gender
+        with pytest.raises(ValueError):
+            check_sentence(bad, fact)
+
+
+def test_description_states_quality_stability_and_confidence():
+    from forcecrm.narrative import narrate
+    p = {'customer_count': 10, 'venue_count': 10, 'revenue_share': .2, 'significant_features': [],
+         'stability': .9, 'stability_detail': {'mean': .9, 'p10': .7}, 'confidence_score': .55, 'quality': 'limited'}
+    result = narrate(p, None, demo=True)
+    assert result['description'] == ' '.join(c['sentence'] for c in result['claims'])
+    last = result['claims'][-1]
+    assert last['fact_ids'] == ['quality'] and 'περιορισμένη' in last['sentence']
+    assert '90%' in last['sentence'] and '70%' in last['sentence'] and '55%' in last['sentence']
+
+
+def test_feature_selection_avoids_restating_the_same_place():
+    from forcecrm.narrative import select_features
+    row = lambda f: {'feature': f, 'label': f, 'count': 5, 'total': 10, 'lift': 2.0, 'q_value': .01}
+    picked = select_features([row('prefecture_name:ΧΑΝΙΩΝ'), row('municipality_name:ΧΑΝΙΩΝ / ΧΑΝΙΩΝ'),
+                              row('prefecture_name:ΚΥΚΛΑΔΩΝ'), row('prefecture_name:ΡΟΔΟΥ'),
+                              row('hotel_band:≥10'), row('legal_type:ΙΚΕ')])
+    names = [f['feature'] for f in picked]
+    assert 'municipality_name:ΧΑΝΙΩΝ / ΧΑΝΙΩΝ' not in names and 'prefecture_name:ΡΟΔΟΥ' not in names
+    assert names[-1] == 'legal_type:ΙΚΕ' and len(names) == 4
