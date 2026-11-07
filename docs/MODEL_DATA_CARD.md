@@ -34,13 +34,15 @@ The weight repository declares MIT in its metadata. Inspection of its file list 
 
 The embedding comparison encoded 75 Greek foodservice descriptions. Eligible queries had at least one sibling in the same four-digit activity family. A hit means at least one sibling appeared among the five nearest descriptions. This metric measures recovery of the code hierarchy. Human relevance judgments would provide a separate semantic quality assessment.
 
-| Encoder | Family hit@5 | Milliseconds per description | Python RSS after encoding |
-|---|---:|---:|---:|
-| E5-small | 93.2% | 17.6 | 300 MiB |
-| E5-base | 93.2% | 87.2 | 330 MiB |
-| Multilingual MiniLM | 89.0% | 15.9 | 381 MiB |
+| Encoder (origin, declared licence) | Family hit@5 | Recall@500 / @2000 (5-split, real task) | ms per description | Size on disk |
+|---|---:|---:|---:|---:|
+| **E5-small** (Microsoft, US, MIT), shipped | 93.2% | **21.3% / 51.3%** | 8.8 | 0.49 GB |
+| E5-base (Microsoft, US, MIT) | 93.2% | 21.0% / 50.0% | 27.3 | 1.14 GB |
+| Multilingual MiniLM (sentence-transformers, MIT/Apache) | 89.0% | 20.0% / 50.3% | 8.2 | 0.50 GB |
+| granite-embedding multilingual r2 311M (IBM, US, Apache-2.0) | 94.5% | 21.3% / 49.7% | 34.9 | 0.66 GB |
+| BGE-M3 (BAAI, China, MIT) | 95.9% | 20.0% / 50.3% | 88.9 | 2.29 GB |
 
-E5-small tied E5-base on this proxy while encoding descriptions about 5 times faster. The hit@5 values reproduce the original author's Intel laptop measurements exactly; timings come from the Apple A18 Pro, 8 GiB machine. RSS includes interpreter and allocator memory. See the benchmark runner and the local results in `outputs/embedding-comparison.json` and `outputs/llm-comparison.json`.
+The task column swaps only the embedding in the shipped pipeline, over the same 5 seeded holdout splits as the ranking audit (`python -m scripts.benchmark embedding-recall`). With 60 held-out VATs per split, 2–3 points is noise. BGE-M3 and granite lead on the proxy, but **none beats E5-small on the actual task**, and they cost 4–10× more time and memory. So the smallest model ships. The licences of granite and BGE-M3 are declared in their repositories' model-card metadata; like E5, neither repository ships a separate LICENSE file. Granite's tokenizer emitted a regex warning under our transformers version, so its result may be slightly understated. Timings are from the Apple A18 Pro, 8 GiB. The hit@5 values reproduce the original author's Intel laptop measurements exactly; timings come from the Apple A18 Pro, 8 GiB machine. RSS includes interpreter and allocator memory. See the benchmark runner and the local results in `outputs/embedding-comparison.json` and `outputs/llm-comparison.json`.
 
 On an Apple A18 Pro with 8 GiB RAM, the portfolio run took 153 seconds with cached embeddings and fresh Greek drafts. Each of three descriptions took 42–54 seconds. Ollama held 2.33 GiB for Ministral. Python RSS at completion was 173 MiB. (The earlier constrained-variant design took 584.5 seconds on an Intel Core i3-1215U with 7.7 GiB RAM.)
 

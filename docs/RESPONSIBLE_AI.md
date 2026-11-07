@@ -1,38 +1,48 @@
-# Responsible AI self-assessment
+# EU AI Act self-assessment (1 page)
 
-This is an engineering scope assessment, not a certification or legal opinion.
+ForceCRM · local B2B prospect research for Greek food-service businesses · 7 November 2026. This is an engineering self-assessment following the competition brief §9; it is not a legal opinion.
 
-## What does the system recommend?
+**Classification.** Clustering businesses for B2B sales is **not an Annex III high-risk use** of Regulation (EU) 2024/1689.
+- **The trap:** Annex III point 5(b) makes creditworthiness evaluation or credit scoring of **natural persons** high-risk, and sole proprietorships (ΑΤΟΜΙΚΗ) are natural persons. ForceCRM therefore **never produces a solvency, credit or payment-risk score**.
+- Its scores measure only similarity to the user's existing customers. Revenue is used only to weight the user's own customers, never to score prospects.
+- Repurposing the system for credit, eligibility or pricing decisions would require a new assessment.
+- Per the brief, Annex III obligations were postponed to **2 December 2027** by **Regulation (EU) 2026/1744 (Digital Omnibus on AI)**.
 
-It groups an uploaded company's customers and ranks other businesses by similarity to those groups. A person decides whether to research or contact a prospect. The system neither sends messages nor sets prices, determines eligibility, predicts credit risk, estimates solvency, or recommends lending. Revenue describes the user's past sales, not a natural person's financial reliability.
+## 1. What does the system decide or suggest?
+- **Suggests only, decides nothing.** It groups the uploaded customers into 1–6 profiles and ranks non-customer businesses by similarity, each with a short justification.
+- **A person acts.** A salesperson decides whether to research or contact a business. Nothing is contacted, priced or rejected automatically.
 
-## Who is impacted?
+## 2. Who is affected?
+- **The users:** sales staff and the uploading company.
+- **The prospects** listed. Sole proprietors among them may be identifiable natural persons.
+- **Data minimisation:**
+  - The upload is limited to ΑΦΜ and revenue, and everything runs on the laptop.
+  - The optional live ΓΕΜΗ check sends only prospect ΑΦΜ (public-registry identifiers) with the user's own key, never the customer list or revenue.
+  - Run folders and caches stay local and can be deleted by the user.
 
-Sales representatives, the uploading company, and businesses listed as prospective customers. Sole proprietorships may identify natural persons; public registry availability does not erase privacy obligations. Keep access restricted, minimize uploads to VAT/revenue, use the supplied competition purpose, and do not publish raw datasets. Generated run folders contain recommendations and portfolio aggregates. The user controls retention by deleting selected local run folders and narrative caches after use. The app does not implement organization-wide access control or production retention automation.
+## 3. What does the user see about how a result arose?
+- **Transparency (Art. 50, applicable from 2 August 2026):** every AI-written text is labelled.
+  - In the UI, each AI text carries an "AI-GENERATED · LOCAL LLM" tag.
+  - In `profiles.json`: `ai_generated`, `description_status` and `title_source`. Each sentence also records its `author` (local LLM or verified template) and its source fact.
+- **Evidence behind every profile:** counts, revenue share, traits with lift, p-value and q-value, bootstrap stability, fit confidence and the activity mix against the market.
+- **Prospect justifications** name the shared traits and the similarity figures. Prospects outside a profile's acceptance radius are marked «Διερευνητική πρόταση».
+- **Reproducibility:** generation settings are fixed (temperature 0, seed 42), and model identity, prompt hash and rejected drafts are recorded.
 
-## What can the end user inspect?
-
-Each profile exposes counts, revenue share, its most common activities against the market, measured traits, Fisher p-values, globally adjusted q-values, lift, membership stability, fit confidence, and acceptance distance. Every displayed narrative sentence maps to a fact identifier and records whether the local LLM or a verified template wrote it. AI text is explicitly labeled, and the description itself states profile quality, stability and fit confidence. Demo text is labeled as a deterministic template. Candidate justifications identify matching supported traits when available and otherwise state the model's feature basis. Exploratory candidates outside the acceptance radius are identified, not disguised as confident matches.
-
-## Where can it fail, and how is this detected?
-
-| Failure | Detection / response |
+## 4. Where can it be wrong, and how do we detect it?
+| Risk | Detection / mitigation |
 |---|---|
-| Inactive secondary registrations | Primary-weighted representation, semantic filtering and capped secondary influence; human verification remains necessary |
-| Branch duplication or leakage | VAT normalization, revenue divided by venue count, VAT bootstrap and VAT holdout, existing-customer exclusion across all venues |
-| Chance features | Minimum five independent VATs, lift threshold, global BH correction; explicitly exploratory post-clustering inference |
-| Unstable cohorts | Per-profile bootstrap Jaccard and global ARI; limited-quality label |
-| Hallucinated text | One sentence per fact; numbers, percentages and names checked against the source fact; misleading wording rejected; failing sentences fall back to verified templates |
-| Poor retrieval | Internal holdout against primary-NACE baseline; real hidden-set performance cannot be inferred from the demo |
-| Geographic/legal-form bias | Visible feature weights and distributions; profiles that are mainly geographic are documented as such, and business traits shared across regions are shown separately (portfolio traits, activity mix); similarity is never presented as credit or conversion probability |
-| Broken/absent local models | Explicit setup errors; no silent cloud call or demo substitution |
+| Self-declared ΚΑΔ that aren't really practised | Primary activity weighted 85%; only closely related secondary ΚΑΔ 56 kept; a human verifies before contact |
+| Invented or wrong text | One sentence per fact; numbers, %, names and wording checked; a failing sentence keeps its verified template |
+| Traits passing by chance | VAT-level Fisher tests, global Benjamini–Hochberg correction, ≥ 5 ΑΦΜ, lift ≥ 1.2; labelled exploratory |
+| Unstable profiles | Per-profile bootstrap Jaccard (mean and worst 10%), ARI; "limited quality" label |
+| Branch leakage or double counting | Counts, holdout and exclusion all per ΑΦΜ; revenue split across branches |
+| Poor ranking | Internal holdout vs the primary-ΚΑΔ baseline (Recall@500/2000, 5 splits) |
+| Over-reliance on scores | Scores are uncalibrated similarity, stated in the UI and description: "not a purchase probability" |
+| Geographic bias | Profiles that are mainly geographic are documented as such; business traits shared across regions are shown separately |
 
-## Regulatory scope and literacy
+**AI literacy (Art. 4).** The UI section "Πώς λειτουργεί — και πού χρειάζεται προσοχή", the [architecture](ARCHITECTURE.md) and the [model & data card](MODEL_DATA_CARD.md) explain the inputs, weights, statistics, model limits and failure modes, so both builders and users know what the system does and where it fails.
 
-The intended B2B prospect-research use is not designed for an Annex III high-risk decision. Repurposing it for creditworthiness or natural-person eligibility would require a fresh assessment and is outside this application. AI-generated descriptions are visibly labeled regardless of whether a particular legal transparency obligation applies. Developers and operators should understand model inputs, branch handling, confidence limitations, human oversight and failure modes, addressing the AI literacy objective.
-
-The challenge brief contains specific claims about the Digital Omnibus and delayed deadlines. **Do not copy those claims into a compliance declaration without checking enacted legislation.** This implementation does not depend on them. Consult the [European Commission's current AI Act overview](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai) and [Regulation (EU) 2024/1689](https://eur-lex.europa.eu/eli/reg/2024/1689/oj) for actual scope, dates and obligations. A project's own labeling is not evidence of full EU AI Act or GDPR compliance.
-
-## Local boundary
-
-Application serving is loopback-only. The browser has no CDN or map requests; model inference addresses literal loopback and ignores proxy environment variables. Embedding loading enforces local files and offline flags. Explicit setup tools contact model registries to download software/weights. Those setup downloads are separate from analysis. One runtime feature is online, and only on request: the **live ΓΕΜΗ status check**. It sends only prospect ΑΦΜ (public-registry identifiers) with the user's own API key, is rate-limited and cached, and never sends the customer portfolio or revenue. Its result describes registry status only, never solvency or creditworthiness, and does not change any score or ranking. Colab is an optional cloud development environment and is not represented as a local deployment.
+**Local boundary.**
+- Serving is loopback-only, and models run locally (Ollama on 127.0.0.1, embeddings offline). No AI service is called at runtime.
+- Setup downloads models once.
+- The only runtime network call is the opt-in ΓΕΜΗ registry-status check, which fetches data, never AI. Its result never changes scores or ranking.

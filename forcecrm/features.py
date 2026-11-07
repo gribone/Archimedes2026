@@ -50,7 +50,10 @@ def description_embeddings(descriptions, root: Path, demo=False, model_path=None
     # Local file fingerprints invalidate the cache after a model replacement.
     stamps = [(str(f.relative_to(path)), f.stat().st_size, f.stat().st_mtime_ns)
               for f in sorted(path.rglob('*')) if f.is_file()]
-    key = hashlib.sha256(json.dumps([texts, identity, stamps], ensure_ascii=False).encode()).hexdigest()
+    # E5 models need the 'query: ' prefix; other encoders (used in benchmarks) get raw text.
+    prefix = 'query: ' if 'e5' in str(identity.get('model', path)).lower() or 'e5' in path.name.lower() else ''
+    fingerprint = [texts, identity, stamps] + ([] if prefix == 'query: ' else [prefix])  # shipped E5 cache key unchanged
+    key = hashlib.sha256(json.dumps(fingerprint, ensure_ascii=False).encode()).hexdigest()
     cache = root / '.cache' / f'embeddings-{key}.npy'
     if cache.exists():
         return np.load(cache, allow_pickle=False), identity
@@ -62,7 +65,7 @@ def description_embeddings(descriptions, root: Path, demo=False, model_path=None
     torch.set_num_threads(min(4, os.cpu_count() or 1))
     encoder = SentenceTransformer(str(path), local_files_only=True, trust_remote_code=False, device='cpu')
     encoder.max_seq_length = 256
-    values = encoder.encode(['query: ' + t for t in texts], batch_size=32,
+    values = encoder.encode([prefix + t for t in texts], batch_size=32,
                             normalize_embeddings=True, show_progress_bar=False).astype('float32')
     cache.parent.mkdir(exist_ok=True)
     np.save(cache, values)

@@ -64,6 +64,38 @@ def embeddings(args):
     return {'kind': 'embedding', 'hardware': hardware(), 'limitations': 'Weak code-family labels are not a Greek human relevance benchmark. RSS includes Python and prior allocations, not isolated model peak memory.', 'results': results}
 
 
+def embedding_recall(args):
+    """Task-level comparison: 5-split holdout recall with only the embedding model swapped."""
+    os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
+    from threadpoolctl import threadpool_limits
+    from forcecrm.data import load_universe, read_portfolio
+    from forcecrm.features import build_features
+    from forcecrm.enrichment import market_context
+    from forcecrm.pipeline import evaluate_holdout
+    c, a, d, _ = load_universe(args.data)
+    portfolio = read_portfolio(args.portfolio, c)
+    c['hotel_band'] = market_context(c).hotel_band
+    results = []
+    for path in args.embedding_paths:
+        row = {'model_path': path, 'task': '5-split VAT holdout recall (shipped pipeline, tourism signal)'}
+        try:
+            start = time.perf_counter()
+            with threadpool_limits(limits=2):
+                X, _, primary, meta = build_features(c, a, d, args.data, model_path=path)
+                splits = [evaluate_holdout(X, c, portfolio, primary, seed) for seed in (2026, 17, 43, 101, 713)]
+            row['seconds'] = time.perf_counter() - start
+            for k in (500, 2000):
+                values = [m['recall'] for s in splits for m in s['metrics'] if m['k'] == k]
+                row[f'recall_at_{k}_mean'] = float(np.mean(values))
+                row[f'recall_at_{k}_sd'] = float(np.std(values, ddof=1))
+            row['status'] = 'measured'
+        except Exception as exc:
+            row.update(status='unavailable', error=str(exc))
+        results.append(row)
+        print(row, flush=True)
+    return {'kind': 'embedding_recall', 'hardware': hardware(), 'limitations': 'Same 5 seeded splits as scripts.audit_ranking --with-tourism; only the activity embedding changes. 60 held-out VATs per split, so differences of 2-3 points are within noise.', 'results': results}
+
+
 def llms(args):
     from forcecrm.narrative import narrate
     import httpx
@@ -106,7 +138,8 @@ def llms(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('kind', choices=['embeddings', 'llms'])
+    parser.add_argument('kind', choices=['embeddings', 'embedding-recall', 'llms'])
+    parser.add_argument('--portfolio', type=Path, default=Path('ForceCRM_Hackathon_Pelatologio.xlsx'))
     parser.add_argument('--data', type=Path, default=Path('.'))
     parser.add_argument('--profiles', type=Path, default=Path('outputs/cli/profiles.json'))
     parser.add_argument('--limit-profiles', type=int, default=6, help='Use the same first N profiles for every LLM')
@@ -114,7 +147,7 @@ def main():
     parser.add_argument('--llm-models', nargs='+', default=['ministral-3:3b','qwen3:1.7b','gemma3:1b'])
     parser.add_argument('--output', type=Path, default=Path('outputs/benchmark.json'))
     args = parser.parse_args()
-    result = embeddings(args) if args.kind == 'embeddings' else llms(args)
+    result = {'embeddings': embeddings, 'embedding-recall': embedding_recall, 'llms': llms}[args.kind](args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), 'utf-8')
     print(args.output)

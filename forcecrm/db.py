@@ -271,7 +271,10 @@ def query_lookalikes(con, run_id, profile=None, q=None, live=None, offset=0, lim
     source = 'lookalikes l LEFT JOIN gemi_status g ON g.vat = l.vat'
     total = con.execute(f'SELECT COUNT(*) FROM {source} WHERE {where}', args).fetchone()[0]
     rows = con.execute(
-        f'SELECT l.rank, l.profile_id, l.company_id, l.score, l.rationale, l.vat, l.company_name_el, l.city, '
+        f'SELECT l.rank, '
+        # A7: rank within the profile, independent of the search/status filters.
+        f'(SELECT COUNT(*) FROM lookalikes x WHERE x.run_id = l.run_id AND x.profile_id = l.profile_id '
+        f'AND x.rank <= l.rank) AS profile_rank, l.profile_id, l.company_id, l.score, l.rationale, l.vat, l.company_name_el, l.city, '
         f'l.municipality_name, l.latitude, l.longitude, g.status AS gemi_status, g.description AS gemi_description '
         f'FROM {source} WHERE {where} ORDER BY l.rank LIMIT ? OFFSET ?', [*args, limit, offset]).fetchall()
     return {'total': total, 'offset': offset, 'limit': limit, 'rows': [dict(r) for r in rows]}

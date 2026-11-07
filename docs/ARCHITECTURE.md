@@ -137,10 +137,11 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
   Each lift adds 5 "prior customer equivalents", so tiny groups stay close to neutral.
 - One best venue is kept per ΑΦΜ. Ties are broken by `company_id`, so the order is stable.
 - All ~23,600 non-customer ΑΦΜ are ranked, well above the 2,000 the brief requires.
-- **Justification:** the profile's significant traits that the venue shares, plus its similarity and concentration figures. Venues outside the acceptance radius are prefixed "Διερευνητική πρόταση".
+- **Justification** (`rationale`, plain Greek): up to 3 of the profile's significant traits that the venue shares, using the short names from the titles, then its similarity and customer-concentration figures with Greek decimal commas. Venues outside the acceptance radius are prefixed «Διερευνητική πρόταση».
+- **Per-profile rank (A7):** the export keeps one global rank. The UI also shows each prospect's position within its nearest profile («#3 στο ICP-02»).
 
 ### 2.9 Outputs and internal evaluation
-- `profiles.json`: title, AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, `activity_mix`, plus LLM parameters.
+- `profiles.json`: title, `confidence` (the brief's name; same value as `confidence_score`), AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, `activity_mix`, plus LLM parameters.
 - `assignments.csv` (`company_id, profile_id, score`) and `lookalikes.csv` (`profile_id, company_id, rank, score, rationale`).
 - `report.json`: data audit, chosen k and diagnostics, `portfolio_traits`, input SHA-256 hashes, timings and the internal holdout test.
 - **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.3% / 51.3%.

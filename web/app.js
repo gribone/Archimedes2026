@@ -449,7 +449,7 @@ async function renderCandidates() {
     data.rows
       .map(
         (c) =>
-          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat, c)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
+          `<tr><td>#${number(c.rank)}<small>#${number(c.profile_rank)} στο ${escapeHTML(c.profile_id)}</small></td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat, c)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
       )
       .join("") ||
     '<tr><td colspan="5">Δεν βρέθηκαν επιχειρήσεις για αυτά τα φίλτρα.</td></tr>';

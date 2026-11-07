@@ -47,9 +47,10 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min here, including 3 LLM titles + descriptions (faster when Ollama keeps the model loaded) |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
 | Tests | `.venv/bin/python -m pytest -q` | 56 pass |
+| End-to-end (running server) | `.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio <xlsx> [--mode full\|weights\|restore]` | Drives the same HTTP calls as the browser. The server reads CSVs and `models/e5-small` from the repo root |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
-| Benchmarks | `scripts.benchmark embeddings` / `scripts.benchmark llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |
+| Benchmarks | `scripts.benchmark embeddings` / `embedding-recall --portfolio <xlsx>` / `llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |
 | PDF model card | `.venv/bin/python -m scripts.build_card` | Needs `pip install reportlab`, `outputs/real`, `outputs/embedding-comparison.json` and `outputs/llm-comparison.json` |
 
 ### Measured results (reproduced on this Mac)
@@ -64,7 +65,17 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Profiles:** `main` finds 3 (tourist islands: Cyclades, Heraklion, Chania, Dodecanese; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ). Stability is 93% / 88% / 91%.
 - **Portfolio-wide business traits:** ΙΚΕ 110/300 (2.4×) and school canteens 19/300 (2.4×, q = 0.02).
 - **LLM benchmark** (share of sentences passing the grounding checks / seconds per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. **Decision (user, 2026-11-07): ship Ministral 3 3B** for its European provenance. It overrode Dimitris's switch to Qwen during the merge. Revisit when Krikri-8B or EuroLLM-9B are benchmarked (T4). `DEFAULT_LLM` in `forcecrm/narrative.py` is the single source of truth, and `run.py` pulls whatever it names.
-- **Embeddings** (family hit@5): E5-small 93.2%, E5-base 93.2%, MiniLM 89.0%. These reproduce the original author's numbers.
+- **Embeddings:** five models compared on the code-family proxy (hit@5) and on the real task (5-split recall@500/@2000 with only the embedding swapped):
+
+  | Model | hit@5 | Recall@500 / @2000 |
+  |---|---:|---:|
+  | E5-small (shipped) | 93.2% | 21.3% / 51.3% |
+  | E5-base | 93.2% | 21.0% / 50.0% |
+  | MiniLM | 89.0% | 20.0% / 50.3% |
+  | granite r2 311M | 94.5% | 21.3% / 49.7% |
+  | BGE-M3 | 95.9% | 20.0% / 50.3% |
+
+  None beats E5-small on the task. BGE-M3 publishes only `pytorch_model.bin`: `scripts.download_models` filters for safetensors, so fetch that file with `hf_hub_download`. The benchmark models live in the temporary env's `models/`.
 - **Determinism:** the same inputs give byte-identical `lookalikes.csv` and `assignments.csv`, verified across separate runs.
 
 ### Working conventions for agents
@@ -85,7 +96,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Long runs:** the Mac has 8 GB RAM, so don't run two LLM-heavy jobs at once.
 
 ### Open problems on `main` (priority order)
-1. **Browser flow untested:** upload → profiles (portfolio-traits card, activity-mix table, AI titles) → prospects and map → options panel (custom weights) → live ΓΕΜΗ check (needs a real key) → export. Only `node --check` and the API-level pipeline have been verified.
+1. **Visual browser check pending.** `scripts/e2e_server.py` passed end to end against the real server on 2026-11-07: full run 24/24, custom weights 25/25, restore after restart 10/10. It covered upload, analysis, every export, `all.zip`, security rejections and the live check without a key. Nobody has yet *looked* at the rendered pages: portfolio-traits card, activity mix, titles, per-profile rank, map, options panel, dark mode. The live ΓΕΜΗ check with a real key is also untested.
 2. **Greek fluency** has no native-speaker rating yet (the benchmark JSON has null rating fields). Activity names appear in ΓΕΜΗ capitals inside «».
 3. **Clean install untested on Windows/Linux.** The durable repo setup on this Mac hasn't been done (see Environment).
 4. **LLM default:** Ministral passes the checks least often (61%) and is the slowest. Qwen3 or Gemma are faster and pass more, but they aren't European. It's the user's call.

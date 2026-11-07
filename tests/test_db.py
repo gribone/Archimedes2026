@@ -70,6 +70,9 @@ def test_run_store_pagination_filters_and_search(universe):
         assert page['total'] == 3 and [r['rank'] for r in page['rows']] == [1, 2]
         assert [r['rank'] for r in db.query_lookalikes(con, 'run1', offset=2, limit=2)['rows']] == [3]
         assert db.query_lookalikes(con, 'run1', profile='ICP-01')['total'] == 2
+        # Rank within the profile (A7) is the same whether or not the page is filtered.
+        assert [r['profile_rank'] for r in db.query_lookalikes(con, 'run1')['rows']] == [1, 1, 2]
+        assert [r['profile_rank'] for r in db.query_lookalikes(con, 'run1', profile='ICP-01')['rows']] == [1, 2]
         # Case- and accent-insensitive Greek search over name, city, municipality and ΑΦΜ.
         assert [r['vat'] for r in db.query_lookalikes(con, 'run1', q='ταβερνα')['rows']] == ['000000002']
         assert db.query_lookalikes(con, 'run1', q='σύρος')['total'] == 1

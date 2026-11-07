@@ -38,6 +38,10 @@ def main():
         assert profile['ai_generated'] is True
         assert profile['description'] == ' '.join(claim['sentence'] for claim in profile['claims'])
         assert 0 <= profile['stability'] <= 1 and 0 <= profile['confidence_score'] <= 1
+        assert profile['confidence'] == profile['confidence_score']  # brief §10 name alongside the original
+        for key in ('profile_id', 'title', 'description', 'customer_count', 'revenue_share', 'stability', 'confidence'):
+            assert key in profile, key
+        assert all({'lift', 'p_value'} <= set(f) for f in profile['significant_features'])
         assert all(f['q_value'] <= .05 and f['count'] >= 5 and f['lift'] >= 1.2 for f in profile['significant_features'])
     print(f'PASS: {len(profiles)} grounded profiles, {len(assignments)} venue assignments, {len(candidates)} unique non-customer VAT recommendations.')
 

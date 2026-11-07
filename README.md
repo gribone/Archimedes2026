@@ -82,9 +82,9 @@ Each analysis writes `outputs/<run-id>/`:
 
 | File | Fields / purpose |
 |---|---|
-| `profiles.json` | Array containing `profile_id`, `title`, `description`, `customer_count`, `venue_count`, `revenue_share`, `stability` (+ `stability_detail`), `confidence_score`, `quality`, `significant_features` (lift, p-value, q-value), `activity_mix` (top primary activities vs market), `ai_generated`, `description_status`, per-sentence `claims` (source fact + `author`) and `llm` parameters |
+| `profiles.json` | Array containing `profile_id`, `title`, `description`, `customer_count`, `venue_count`, `revenue_share`, `stability` (+ `stability_detail`), `confidence_score` and its alias `confidence` (the brief's «εμπιστοσύνη»), `quality`, `significant_features` (lift, p-value, q-value), `activity_mix` (top primary activities vs market), `ai_generated`, `description_status`, per-sentence `claims` (source fact + `author`) and `llm` parameters |
 | `assignments.csv` | `company_id,profile_id,score`; every venue; rejected matches use literal `NONE` |
-| `lookalikes.csv` | `profile_id,company_id,rank,score,rationale`; globally ranked, one best venue per noncustomer VAT |
+| `lookalikes.csv` | `profile_id,company_id,rank,score,rationale`. Globally ranked, one best venue per non-customer VAT. `rationale` is the brief's «αιτιολόγηση», written in plain Greek, e.g. «Κοινά με το ICP-02: Δήμος ΚΑΣΣΑΝΔΡΑΣ · Π.Ε. ΧΑΛΚΙΔΙΚΗΣ · ΙΚΕ. Ομοιότητα 93,3%, συγκέντρωση πελατών 2,54× του αναμενόμενου.» The UI also shows each prospect's rank within its profile (A7). |
 | `report.json` | Source hashes, portfolio hash, model/config identity, diagnostics, `portfolio_traits` (business traits over-represented across the whole portfolio), latency, internal evaluation, caveats |
 
 CSV outputs use comma delimiters, dot decimals, UTF-8 BOM, and standard CSV quoting. Input CSVs use semicolons and comma decimals. Rankings include all eligible prospects, therefore exceed 2,000 unless fewer exist. `rank` is **global**; filtering a profile retains that global rank. The nearest profile is reported for every candidate; those outside its radius are explicitly marked **διερευνητική πρόταση** in the rationale, while assignments correctly remain `NONE`. This avoids pretending there are 2,000 confident matches when there are not.
@@ -93,6 +93,7 @@ CSV outputs use comma delimiters, dot decimals, UTF-8 BOM, and standard CSV quot
 .venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real
 .venv/bin/python -m scripts.analyze --demo --output outputs/demo
 .venv/bin/python -m scripts.validate_exports --output outputs/real
+.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio ForceCRM_Hackathon_Pelatologio.xlsx   # app must be running
 .venv/bin/python -m scripts.audit_ranking --with-tourism   # 5-split recall, matches the shipped pipeline
 .venv/bin/python -m scripts.experiment_representation --portfolio ForceCRM_Hackathon_Pelatologio.xlsx
 .venv/bin/python -m pytest -q
@@ -116,7 +117,7 @@ See [Architecture](docs/ARCHITECTURE.md) for the full pipeline diagram, the rank
 
 ## Model comparison
 
-On an Apple A18 Pro with 8 GiB RAM, all three tested LLMs produced correct Greek descriptions for all three profiles. The share of fact sentences each model wrote that passed every grounding check (the rest keep their verified template) was 61% for Ministral 3 3B, 100% for Qwen3 1.7B and 94% for Gemma 3 1B. Mean time per profile was 50.0 s, 32.2 s and 16.8 s. Ministral remains the default for its European provenance and Apache-licensed distribution. Fluency still requires independent human review. E5-small tied E5-base on Greek activity-family hit@5 at 93.2% and took 17.6 ms per description versus 87.2 ms. The printable [Model & Data Card](docs/ForceCRM-Model-Data-Card.pdf) records the evaluation scope and costs; rebuild it with `.venv/bin/python -m scripts.build_card` after `pip install reportlab` (Windows, macOS and Linux fonts are supported). Reproduce the comparisons with the following commands.
+On an Apple A18 Pro with 8 GiB RAM, all three tested LLMs produced correct Greek descriptions for all three profiles. The share of fact sentences each model wrote that passed every grounding check (the rest keep their verified template) was 61% for Ministral 3 3B, 100% for Qwen3 1.7B and 94% for Gemma 3 1B. Mean time per profile was 50.0 s, 32.2 s and 16.8 s. Ministral remains the default for its European provenance and Apache-licensed distribution. Fluency still requires independent human review. Five embedding models were compared, including two from the brief's list (IBM granite multilingual r2 311M and BGE-M3). On the real task, 5-split holdout recall with only the embedding swapped (`scripts.benchmark embedding-recall`), none beat E5-small (21.3% / 51.3%). BGE-M3 scored best on the code-family proxy (95.9% vs 93.2%) but costs about 10× the time and 4.7× the disk. The printable [Model & Data Card](docs/ForceCRM-Model-Data-Card.pdf) records the evaluation scope and costs; rebuild it with `.venv/bin/python -m scripts.build_card` after `pip install reportlab` (Windows, macOS and Linux fonts are supported). Reproduce the comparisons with the following commands.
 
 ```bash
 ollama pull qwen3:1.7b
@@ -124,7 +125,10 @@ ollama pull gemma3:1b
 .venv/bin/python -m scripts.benchmark llms --profiles outputs/real/profiles.json --output outputs/llm-comparison.json
 .venv/bin/python -m scripts.download_models --model intfloat/multilingual-e5-base --destination models/e5-base
 .venv/bin/python -m scripts.download_models --model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 --destination models/multilingual-minilm
-.venv/bin/python -m scripts.benchmark embeddings --output outputs/embedding-comparison.json
+.venv/bin/python -m scripts.download_models --model ibm-granite/granite-embedding-311m-multilingual-r2 --destination models/granite-311m-r2
+.venv/bin/python -m scripts.download_models --model BAAI/bge-m3 --destination models/bge-m3   # its weights are pytorch_model.bin; fetch that file too (see CLAUDE.md)
+.venv/bin/python -m scripts.benchmark embeddings --embedding-paths models/e5-small models/e5-base models/multilingual-minilm models/granite-311m-r2 models/bge-m3 --output outputs/embedding-comparison.json
+.venv/bin/python -m scripts.benchmark embedding-recall --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --embedding-paths models/e5-small models/e5-base models/multilingual-minilm models/granite-311m-r2 models/bge-m3 --output outputs/embedding-recall.json
 ```
 
 For MiniLM comparisons the benchmark uses unprefixed text; E5 uses `query:`. The embedding benchmark measures recovery of Greek activity-code families, a weak-label proxy. Add human-labeled Greek relevance judgments before presenting it as semantic quality. For LLMs, evaluate schema success, original generation latency and blind human fluency/coherence ratings (null until reviewed). Verify each alternative's actual license before deployment; Gemma uses custom terms. Missing models produce explicit unavailable entries. Do not invent missing scores or fill human ratings automatically. Hardware timing excludes downloads; application RAM reporting is process RSS at finish, not total system peak including Ollama.

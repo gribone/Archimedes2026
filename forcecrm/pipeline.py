@@ -14,7 +14,7 @@ from .clustering import discover, stability
 from .data import FILES, load_universe
 from .evidence import significant_features, portfolio_traits, activity_mix
 from .features import build_features, is_custom, normalize_weights
-from .narrative import narrate, DEFAULT_LLM
+from .narrative import narrate, DEFAULT_LLM, feature_phrase, greek_number, short_activity
 from .titles import activity_families, make_title
 from .affinity import market_affinity
 from .enrichment import enrich
@@ -60,15 +60,20 @@ def rank_candidates(companies, fit, customer_vats, traits=None, profiles=None, l
         i = row.index
         j = int(fit['nearest'][i])
         accepted = bool(fit['accepted'][i])
+        profile_id = f'ICP-{j + 1:02}'
         reasons = []
         if traits is not None and profiles is not None:
-            reasons = [f['label'] for f in profiles[j]['significant_features'] if f['feature'] in traits[i]][:2]
-        rationale = '; '.join(reasons) if reasons else 'Ομοιότητα δραστηριότητας, γεωγραφίας, νομικής μορφής και ηλικίας'
+            # Short Greek names of the profile's significant traits that this business shares.
+            reasons = [short_activity(feature_phrase(f)[1]) for f in profiles[j]['significant_features']
+                       if f['feature'] in traits[i]][:3]
+        rationale = (f'Κοινά με το {profile_id}: ' + ' · '.join(reasons) + '.') if reasons else \
+            f'Παρόμοια δραστηριότητα, γεωγραφία, νομική μορφή και ηλικία με τους πελάτες του {profile_id}.'
         if primary_codes is not None:
-            rationale += f' · Ομοιότητα {fit["similarity"][i]:.1%}, σχετική συγκέντρωση πελατών {np.exp(lift[i]):.2f}×.'
+            rationale += (f' Ομοιότητα {greek_number(100 * fit["similarity"][i])}%, συγκέντρωση πελατών '
+                          f'{greek_number(np.exp(lift[i]), 2)}× του αναμενόμενου.')
         if not accepted:
             rationale = 'Διερευνητική πρόταση — εκτός ορίου αντιστοίχισης. ' + rationale
-        rows.append({'profile_id': f'ICP-{j + 1:02}', 'company_id': row.company_id, 'rank': rank,
+        rows.append({'profile_id': profile_id, 'company_id': row.company_id, 'rank': rank,
                      'score': float(row.score), 'rationale': rationale})
     return pd.DataFrame(rows, columns=['profile_id', 'company_id', 'rank', 'score', 'rationale'])
 
@@ -150,6 +155,7 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
                    'customer_count': int(members.vat.nunique()), 'venue_count': len(members),
                    'revenue_share': float(allocated_revenue / portfolio.revenue.sum()),
                    'stability': stable[j]['mean'], 'stability_detail': stable[j], 'confidence_score': confidence,
+                   'confidence': confidence,  # brief §10 name ("εμπιστοσύνη"); same value as confidence_score
                    'quality': 'strong' if stable[j]['mean'] >= .75 and len(evidence[j]) >= 2 else 'limited',
                    'significant_features': evidence[j], 'activity_mix': mixes[j],
                    'acceptance_cosine_distance': float(fit['radii'][j])}
