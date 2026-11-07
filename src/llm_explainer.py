@@ -148,7 +148,7 @@ def build_rich_deterministic_description_el(prof: DiscoveredICP) -> str:
         trait_phrases.append(
             f"• **{f.feature_label_el}**: απαντάται στο **{100*f.icp_share:.1f}%** των πελατών του προφίλ "
             f"(έναντι {100*f.universe_share:.1f}% στο Universe), με **Empirical Bayes Lift {f.eb_lift:.2f}x** "
-            f"και στατιστική σημαντικότητα **$p_{{\\text{{FDR}}}} = {f.p_value_fdr:.2e}$**."
+            f"και στατιστική σημαντικότητα **FDR p-value = `{f.p_value_fdr:.2e}`**."
         )
 
     traits_section = "\n".join(trait_phrases) if trait_phrases else "• Ομοιογενές προφίλ εστίασης."
