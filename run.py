@@ -19,6 +19,9 @@ def main():
     mode.add_argument('--demo', action='store_true', help='Install only lightweight demo dependencies')
     parser.add_argument('--port', type=int, default=8000)
     args = parser.parse_args()
+    if not (3, 12) <= sys.version_info[:2] < (3, 14):
+        raise SystemExit(f'Python 3.12 or 3.13 is required (found {sys.version.split()[0]}). '
+                         'Install Python 3.12 and run it explicitly, e.g. python3.12 run.py --first-run')
     os.chdir(ROOT)
     env = ROOT / '.venv'
     executable = env / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')

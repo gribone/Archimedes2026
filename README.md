@@ -2,39 +2,60 @@
 
 A localhost application for discovering 1–6 ideal customer profiles in Greek HORECA businesses, explaining them in Greek, and ranking new prospects. FastAPI serves a dependency-free Greek browser interface; NumPy/scikit-learn perform analysis; E5 embeds Greek activity descriptions; Ollama runs Ministral locally.
 
-**This workspace is provisioned.** From this directory, run `.\.venv\Scripts\python.exe run.py` and open http://127.0.0.1:8000. The launcher finds the project-local Ollama executable under `.tools/ollama/`. The grading files for the 300-customer workbook are in `outputs/real/`. On startup, the browser restores the latest complete local export.
-
-The supplied portfolio yielded 3 profiles, 24,424 venue assignments and 23,645 distinct prospective VATs. On a seeded internal split of 240 training and 60 held-out customers, ForceCRM retrieved 13/60 at 500 and 33/60 at 2,000. The primary-code baseline retrieved 1/60 and 5/60. The organizer scores its own hidden VAT list separately.
+The supplied portfolio yields 3 profiles, 24,424 venue assignments and 23,645 distinct prospective VATs. On the seeded internal split of 240 training and 60 held-out customers, ForceCRM retrieves 15/60 (25.0%) at 500 and 33/60 (55.0%) at 2,000; the primary-code baseline retrieves 1/60 and 5/60. Averaged over five paired splits, recall is 18.0% at 500 and 50.3% at 2,000 versus 1.3% and 8.0% for the baseline ([details](docs/COMPETITION_AUDIT.md)). The organizer scores its own hidden VAT list separately.
 
 ## Run locally
 
-Prerequisites: **Python 3.11 or 3.12**, current [Ollama](https://ollama.com/download) (at least 0.13.1), roughly 8 GB free disk space, and ideally 16 GB RAM. Python must be installed with pip. Place the three supplied CSVs in this directory. They are already present in this workspace.
+### Prerequisites
 
-One-command launch from a clean Python environment:
+- **Python 3.12** (3.13 also resolves; 3.11 and 3.14 are not supported by the pinned wheels). Python must include pip.
+- [Ollama](https://ollama.com/download) 0.13.1 or newer (macOS: `brew install ollama` also works).
+- About 8 GB free disk space; 16 GB RAM recommended (8 GB works, more slowly).
 
-```powershell
-python run.py --first-run
+### 1. Add the competition data
+
+The data files are not in the repository. Copy the three supplied CSVs into the repository root, next to `run.py`:
+
+```text
+Archimedes2026/
+├── run.py
+├── vwHackCompany.csv
+├── vwHackCompanyActivity.csv
+├── vwHackActivities.csv
+└── ForceCRM_Hackathon_Pelatologio.xlsx   (optional here; you upload it in the browser)
 ```
 
-The launcher creates `.venv`, installs dependencies, downloads both models and starts **http://127.0.0.1:8000**. With the Windows Python Launcher, replace `python` with `py -3.12`. Subsequent launches use `python run.py` and work offline.
+`.gitignore` excludes `*.csv` and `*.xlsx`, so these files are never committed.
 
-To prepare the models separately and launch later, use these commands instead:
+### 2. One-command launch
 
-```powershell
-python run.py --setup-models
-python run.py
+macOS / Linux:
+
+```bash
+python3.12 run.py --first-run
 ```
 
-This downloads `intfloat/multilingual-e5-small` to `models/e5-small`, records its exact revision, and runs `ollama pull ministral-3:3b` (Q4_K_M, approximately 3 GB). If Ollama is not installed, the setup command explains how to finish. Ollama must remain running. No API key is needed. You can disconnect the internet after provisioning. On the current workspace, the created environment can also be used directly:
+Windows:
 
 ```powershell
-.\.venv\Scripts\python.exe run.py --demo
+py -3.12 run.py --first-run
 ```
+
+The launcher checks the Python version, creates `.venv`, installs dependencies, downloads both models, starts Ollama if it is not already running, and serves **http://127.0.0.1:8000**. Later launches use `python3.12 run.py` (`py -3.12 run.py` on Windows) and work offline.
+
+To prepare the models separately and launch later:
+
+```bash
+python3.12 run.py --setup-models
+python3.12 run.py
+```
+
+This downloads `intfloat/multilingual-e5-small` to `models/e5-small`, records its exact revision, and runs `ollama pull ministral-3:3b` (Q4_K_M, approximately 3 GB). If Ollama is not installed, the setup command explains how to finish. Ollama must remain running. No API key is needed. You can disconnect the internet after provisioning. On startup, the browser restores the latest complete local export from `outputs/`.
 
 ### Try the interface without downloading AI models
 
-```powershell
-python run.py --demo
+```bash
+python3.12 run.py --demo
 ```
 
 Open the URL and click **Δοκιμή με demo δεδομένα**. This deliberately uses a synthetic portfolio, character TF-IDF/SVD features, and deterministic Greek templates. The real registry still supplies all venues. Demo results are visibly marked and **do not satisfy the semantic embedding/LLM requirements for submission**. Demo mode never silently substitutes for a failed real analysis.
@@ -58,13 +79,14 @@ Each analysis writes `outputs/<run-id>/`:
 
 CSV outputs use comma delimiters, dot decimals, UTF-8 BOM, and standard CSV quoting. Input CSVs use semicolons and comma decimals. Rankings include all eligible prospects, therefore exceed 2,000 unless fewer exist. `rank` is **global**; filtering a profile retains that global rank. The nearest profile is reported for every candidate; those outside its radius are explicitly marked **διερευνητική πρόταση** in the rationale, while assignments correctly remain `NONE`. This avoids pretending there are 2,000 confident matches when there are not.
 
-```powershell
-.\.venv\Scripts\python.exe -m scripts.analyze --portfolio customers.xlsx --output outputs/real
-.\.venv\Scripts\python.exe -m scripts.analyze --demo --output outputs/demo
-.\.venv\Scripts\python.exe -m pytest -q
+```bash
+.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real
+.venv/bin/python -m scripts.analyze --demo --output outputs/demo
+.venv/bin/python -m scripts.audit_ranking
+.venv/bin/python -m pytest -q
 ```
 
-Linux/macOS: replace `.\.venv\Scripts\python.exe` with `.venv/bin/python`.
+Windows: replace `.venv/bin/python` with `.\.venv\Scripts\python.exe`.
 
 ## Methodology
 
@@ -82,13 +104,13 @@ Linux/macOS: replace `.\.venv\Scripts\python.exe` with `.venv/bin/python`.
 
 On this laptop, all three tested LLMs produced grounded drafts for all three profiles. Mean generation times were 176.4 seconds for Ministral 3 3B, 30.1 seconds for Qwen3 1.7B and 19.3 seconds for Gemma 3 1B. Ministral remains the default for its European provenance and Apache-licensed distribution. Fluency still requires independent human review. E5-small tied E5-base on Greek activity-family hit@5 at 93.2% and took 59.5 ms per description versus 195.5 ms. The printable [Model & Data Card](docs/ForceCRM-Model-Data-Card.pdf) records the evaluation scope and costs. Reproduce the comparisons with the following commands. On this prepared Windows machine the Ollama CLI is also available at `.tools/ollama/ollama.exe`.
 
-```powershell
+```bash
 ollama pull qwen3:1.7b
 ollama pull gemma3:1b
-.\.venv\Scripts\python.exe -m scripts.benchmark llms --profiles outputs/real/profiles.json --output outputs/llm-comparison.json
-.\.venv\Scripts\python.exe -m scripts.download_models --model intfloat/multilingual-e5-base --destination models/e5-base
-.\.venv\Scripts\python.exe -m scripts.download_models --model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 --destination models/multilingual-minilm
-.\.venv\Scripts\python.exe -m scripts.benchmark embeddings --output outputs/embedding-comparison.json
+.venv/bin/python -m scripts.benchmark llms --profiles outputs/real/profiles.json --output outputs/llm-comparison.json
+.venv/bin/python -m scripts.download_models --model intfloat/multilingual-e5-base --destination models/e5-base
+.venv/bin/python -m scripts.download_models --model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 --destination models/multilingual-minilm
+.venv/bin/python -m scripts.benchmark embeddings --output outputs/embedding-comparison.json
 ```
 
 For MiniLM comparisons the benchmark uses unprefixed text; E5 uses `query:`. The embedding benchmark measures recovery of Greek activity-code families, a weak-label proxy. Add human-labeled Greek relevance judgments before presenting it as semantic quality. For LLMs, evaluate schema success, original generation latency and blind human fluency/coherence ratings (null until reviewed). Verify each alternative's actual license before deployment; Gemma uses custom terms. Missing models produce explicit unavailable entries. Do not invent missing scores or fill human ratings automatically. Hardware timing excludes downloads; application RAM reporting is process RSS at finish, not total system peak including Ollama.
@@ -99,7 +121,7 @@ Open [notebooks/ForceCRM_Colab.ipynb](notebooks/ForceCRM_Colab.ipynb) in Colab a
 
 ## Data, responsible AI and disclosure
 
-Sources: **GEMI Open Data** and **Geocoding powered by OpenStreetMap contributors (ODbL)**. Supplied data is restricted to this competition; do not publish the CSVs or customer portfolios. `.gitignore` excludes them, models, caches and outputs. A local Git repository is initialized. Data, model weights and outputs are ignored; inspect staged files before publishing.
+Sources: **GEMI Open Data** and **Geocoding powered by OpenStreetMap contributors (ODbL)**. Supplied data is restricted to this competition; do not publish the CSVs or customer portfolios. `.gitignore` excludes them, models, caches and outputs; inspect staged files before publishing.
 
 [Responsible AI self-assessment](docs/RESPONSIBLE_AI.md) records scope, impacts, visible evidence and failure modes. All model-composed text is labeled. No credit/solvency scores, protected characteristics or automated contact are generated. The backend binds to loopback, checks Host, requires a same-origin custom mutation header, uses no CORS wildcard, disables external embedding fetches during analysis, and restricts Ollama to literal `127.0.0.1` with proxy inheritance disabled. The browser loads no CDN assets or map tiles.
 
@@ -107,7 +129,9 @@ AI coding assistant disclosure: **OpenAI Codex** was used for architecture, impl
 
 ## Troubleshooting
 
+- `Python 3.12 or 3.13 is required`: install Python 3.12 (python.org, `brew install python@3.12`, or `uv python install 3.12`) and run the launcher with it. If an older `.venv` was created with another version, delete `.venv` and relaunch.
 - `python` opens the Microsoft Store: install Python 3.12 and enable PATH, or use `py -3.12`.
+- `FileNotFoundError` for a `vwHack*.csv` file: copy the three CSVs into the repository root (step 1).
 - Missing embeddings: `python run.py --setup-models`; model downloads are explicit, never automatic during analysis.
 - Ollama connection refused: start the Ollama app, or run `ollama serve` in another terminal. Ensure `ollama list` contains `ministral-3:3b`.
 - First analysis slow: activity embeddings are computed once per exact model/text fingerprint. The LLM runs only per profile, not for 24,424 businesses.
