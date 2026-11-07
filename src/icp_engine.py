@@ -177,8 +177,9 @@ def select_optimal_k_and_cluster(
     for k in range(max(2, min_k), max_k + 1):
         km = KMeans(
             n_clusters=k,
-            n_init=15,
-            random_state=cfg.random_seed,
+            init=cfg.kmeans_init,
+            n_init=cfg.kmeans_n_init,
+            random_state=cfg.kmeans_random_state,
         )
         labels = km.fit_predict(X_clients, sample_weight=sample_weights)
         centroids = normalize(km.cluster_centers_, norm="l2", axis=1)
@@ -235,8 +236,9 @@ def compute_bootstrap_stability(
 
         km_b = KMeans(
             n_clusters=optimal_k,
-            n_init=5,
-            random_state=cfg.random_seed + 1000 + b,
+            init=cfg.kmeans_init,
+            n_init=10,
+            random_state=cfg.kmeans_random_state + 1000 + b,
         )
         labels_b = km_b.fit_predict(X_sub, sample_weight=w_sub)
         centroids_b = normalize(km_b.cluster_centers_, norm="l2", axis=1)

@@ -137,6 +137,28 @@ def build_grounded_prompt_el(prof: DiscoveredICP) -> tuple[str, str]:
     return system_prompt, user_prompt
 
 
+def build_sales_friendly_description_el(prof: DiscoveredICP) -> str:
+    """
+    Generate a concise, business-friendly Greek executive summary for sales teams,
+    free of dense statistical jargon (which is kept in the technical submenu).
+    """
+    top_traits = prof.significant_features[:3]
+    highlights = []
+    for f in top_traits:
+        highlights.append(
+            f"**{f.feature_label_el}** ({100*f.icp_share:.0f}% των πελατών του προφίλ vs "
+            f"{100*f.universe_share:.1f}% στην αγορά — **{f.eb_lift:.1f}x** μεγαλύτερη συγκέντρωση)"
+        )
+    highlights_str = " · ".join(highlights) if highlights else "Ομοιογενές προφίλ εστίασης"
+
+    return (
+        f"Το προφίλ **{prof.profile_id} ({prof.title_el})** περιλαμβάνει **{prof.client_count} πελάτες** "
+        f"({100*prof.client_share:.0f}% του πελατολογίου) και παράγει το **{100*prof.turnover_share:.0f}% "
+        f"του συνολικού τζίρου** (διάμεσος τζίρος **€{prof.turnover_median:,.0f}** ανά πελάτη).\n\n"
+        f"**Κύρια Εμπορικά Χαρακτηριστικά:** {highlights_str}."
+    )
+
+
 def build_rich_deterministic_description_el(prof: DiscoveredICP) -> str:
     """
     Generate a rich, sales-ready, 100% grounded Greek profile description with AI disclosure badge,
