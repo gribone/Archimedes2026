@@ -62,6 +62,15 @@ python3.12 run.py --demo
 
 Open the URL and click **Δοκιμή με demo δεδομένα**. This deliberately uses a synthetic portfolio, character TF-IDF/SVD features, and deterministic Greek templates. The real registry still supplies all venues. Demo results are visibly marked and **do not satisfy the semantic embedding/LLM requirements for submission**. Demo mode never silently substitutes for a failed real analysis.
 
+### Sign in, guided tour and help assistant
+
+- **Demo login.** Opening the app shows a sign-in page. Any new username creates a local account on the spot with the password typed; an existing username must use its own password. Passwords are stored as salted `scrypt` hashes in the local SQLite store (`.cache/forcecrm.sqlite`), and the session is an HttpOnly, SameSite=Strict cookie (7 days). There is no external identity provider. Without a session, the API answers 401 and the page redirects to sign-in. Set `FORCECRM_AUTH=0` to turn the login off (the test suite does this).
+- **Guided tour.** On a user's first sign-in, an overlay walks through the screens (menu, upload, options, analysis, demo, figures, profiles, prospects, documentation, account). The **?** button in the top bar, or *Επανάληψη ξενάγησης* in the account menu, replays it.
+- **Help assistant (Βοηθός).** Available to every user from the bottom-right button. It runs on the **same local Ollama model** as the descriptions (no extra model, no external call) and streams its answer. It answers only from a fixed Greek help text and a read-only summary of the current analysis, and never changes profiles, scores or ranking. Every answer is labelled as AI or as a fixed reply.
+  - Questions about solvency or creditworthiness get a fixed refusal without calling the model.
+  - **Hand-off to support** doesn't rely on the model: asking for a person gets a fixed reply and the support card; reporting a problem, or repeating the same question, adds the card after the model's answer; the model can also flag a question it can't answer from the help text. The card shows (placeholder) contact details and can save the conversation as a local support ticket (`support_tickets` table).
+  - While an analysis is running, the assistant waits instead of loading the model a second time, so the laptop never runs two LLM jobs at once.
+
 ### Upload your portfolio
 
 The supplied workbook is `ForceCRM_Hackathon_Pelatologio.xlsx` (300 rows, `ΑΦΜ` and `Τζίρος (€)`). Upload it through the interface. Generic `vat` and `revenue` columns (Greek `ΑΦΜ` and `Έσοδα` also accepted) work too. A blank template can be downloaded in the interface. VATs are preserved as nine-character strings, including leading zeros. Decimal numbers and Greek decimal strings such as `1.234,50` are accepted. Supply one row per VAT; duplicate or unknown VATs, negative/nonfinite revenue, and portfolios with fewer than five customers are rejected with an explanation.
@@ -145,11 +154,11 @@ Open [notebooks/ForceCRM_Colab.ipynb](notebooks/ForceCRM_Colab.ipynb) in Colab a
 
 Sources: **ΓΕΜΗ (GEMI) Open Data** and **Geocoding powered by OpenStreetMap contributors (ODbL)**. Bundled enrichment: OpenStreetMap via Geofabrik (ODbL), ELSTAT hotel nights and census, and the Natural Earth map outline (public domain). Optional live check: ΓΕΜΗ Open Data API (ODC-BY 1.0, © Κεντρική Υπηρεσία ΓΕΜΗ / ΚΕΕΕ; see [ENRICHMENT.md](docs/ENRICHMENT.md)). Supplied data is restricted to this competition; do not publish the CSVs or customer portfolios. `.gitignore` excludes them, models, caches and outputs; inspect staged files before publishing.
 
-[Responsible AI self-assessment](docs/RESPONSIBLE_AI.md) records scope, impacts, visible evidence and failure modes. All model-composed text is labeled. No credit/solvency scores, protected characteristics or automated contact are generated. The backend binds to loopback, checks Host, requires a same-origin custom mutation header, uses no CORS wildcard, disables external embedding fetches during analysis, and restricts Ollama to literal `127.0.0.1` with proxy inheritance disabled. The browser loads no CDN assets or map tiles. The only outbound runtime call is the opt-in ΓΕΜΗ live check described above.
+[Responsible AI self-assessment](docs/RESPONSIBLE_AI.md) records scope, impacts, visible evidence and failure modes. All model-composed text is labeled. No credit/solvency scores, protected characteristics or automated contact are generated. The backend binds to loopback, checks Host, requires a signed-in session for the API (local demo accounts), requires a same-origin custom mutation header, uses no CORS wildcard, disables external embedding fetches during analysis, and restricts Ollama to literal `127.0.0.1` with proxy inheritance disabled. The browser loads no CDN assets or map tiles. The only outbound runtime call is the opt-in ΓΕΜΗ live check described above.
 
 AI coding assistant disclosure (development only, not part of application inference):
 - **OpenAI Codex**: architecture, implementation, documentation, tests and debugging.
-- **Claude Code (Anthropic)**: code review against the brief, holdout-recall verification, clean-install/setup fixes, the per-sentence Greek narration with grounding checks and the stated profile quality/stability/confidence, and documentation updates.
+- **Claude Code (Anthropic)**: code review against the brief, holdout-recall verification, clean-install/setup fixes, the per-sentence Greek narration with grounding checks and the stated profile quality/stability/confidence, the demo login, guided tour and help assistant, and documentation updates.
 
 ## Troubleshooting
 

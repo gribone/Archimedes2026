@@ -74,6 +74,10 @@ function setBusy(value) {
 }
 async function request(url, options) {
   const response = await fetch(url, options);
+  if (response.status === 401) {
+    location.replace("/login.html");
+    throw new Error("Απαιτείται σύνδεση.");
+  }
   let body;
   try {
     body = await response.json();

@@ -10,11 +10,11 @@ import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import db
+from . import assistant, auth, db
 from .data import load_universe, read_portfolio, demo_portfolio
 from .pipeline import run_analysis, export_result
 from .narrative import DEFAULT_LLM
@@ -31,10 +31,35 @@ jobs = {}
 live_runs = {}  # job_id -> live GEMI check state; separate from the single analysis worker
 
 
+PUBLIC_PATHS = {'/api/auth/login', '/api/auth/logout', '/api/auth/me'}
+PAGES = {'/', '/index.html'}
+
+
+def auth_enabled():
+    """The demo login is on by default; FORCECRM_AUTH=0 turns it off (tests, scripted runs)."""
+    return os.environ.get('FORCECRM_AUTH', '1') != '0'
+
+
+def current_user(request: Request):
+    token = request.cookies.get(auth.COOKIE)
+    if not token:
+        return None
+    with closing(db.connect(ROOT)) as con:
+        return auth.session_user(con, token)
+
+
 @app.middleware('http')
 async def local_security(request: Request, call_next):
     if request.method == 'POST' and request.headers.get('x-forcecrm') != 'local':
         return Response('Local application header required', status_code=403)
+    path = request.url.path
+    if auth_enabled() and path not in PUBLIC_PATHS and (path.startswith('/api/') or path in PAGES):
+        user = current_user(request)
+        if user is None:
+            if path in PAGES:
+                return RedirectResponse('/login.html', status_code=303)
+            return Response('{"detail":"Απαιτείται σύνδεση."}', status_code=401, media_type='application/json')
+        request.state.user = user
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'no-referrer'
@@ -297,6 +322,84 @@ def stop_live_check(job_id: str):
             raise HTTPException(404, 'No live check for this analysis.')
         run['stop'].set()
         return live_view(run)
+
+
+@app.post('/api/auth/login')
+def login(response: Response, username: str = Form(''), password: str = Form('')):
+    try:
+        with closing(db.connect(ROOT)) as con:
+            user, token, created = auth.login(con, username, password)
+    except auth.AuthError as exc:
+        raise HTTPException(401 if 'κωδικός' in str(exc) else 400, str(exc))
+    response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400, httponly=True,
+                        samesite='strict', path='/')
+    return {'user': user, 'created': created}
+
+
+@app.post('/api/auth/logout')
+def logout(request: Request, response: Response):
+    with closing(db.connect(ROOT)) as con:
+        auth.logout(con, request.cookies.get(auth.COOKIE))
+    response.delete_cookie(auth.COOKIE, path='/')
+    return {'ok': True}
+
+
+@app.get('/api/auth/me')
+def me(request: Request):
+    if not auth_enabled():
+        return {'user': {'user_id': None, 'username': 'local', 'tutorial_done': True}, 'auth': False}
+    user = current_user(request)
+    if user is None:
+        raise HTTPException(401, 'Απαιτείται σύνδεση.')
+    return {'user': user, 'auth': True}
+
+
+@app.post('/api/auth/tutorial')
+def tutorial(request: Request, done: bool = Form(True)):
+    user = getattr(request.state, 'user', None)
+    if user is not None:
+        with closing(db.connect(ROOT)) as con:
+            auth.set_tutorial_done(con, user['user_id'], done)
+    return {'tutorial_done': done}
+
+
+@app.post('/api/chat')
+async def chat(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(400, 'Invalid JSON.')
+    message = str((body or {}).get('message', '')).strip()
+    if not message:
+        raise HTTPException(400, 'Empty message.')
+    history = body.get('history') if isinstance(body.get('history'), list) else []
+    with lock:
+        running = any(j['status'] == 'running' for j in jobs.values())
+        done = next((j for j in jobs.values() if j['status'] == 'complete'), None)
+        context = assistant.analysis_context(done and done.get('result'))
+    return StreamingResponse(assistant.stream_reply(message, history, context, analysis_running=running),
+                             media_type='application/x-ndjson', headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/api/support')
+def support():
+    return {'contact': assistant.SUPPORT}
+
+
+@app.post('/api/support/tickets', status_code=201)
+async def support_ticket(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(400, 'Invalid JSON.')
+    messages = body.get('transcript') if isinstance(body.get('transcript'), list) else []
+    transcript = [{'role': str(m.get('role', ''))[:20], 'content': str(m.get('content', ''))[:2000]}
+                  for m in messages[-40:] if isinstance(m, dict)]
+    user = getattr(request.state, 'user', None)
+    with closing(db.connect(ROOT)) as con:
+        ticket = auth.create_ticket(con, user and user['user_id'], str(body.get('reason') or '')[:200],
+                                    json.dumps(transcript, ensure_ascii=False))
+    return {'ticket_id': ticket, 'contact': assistant.SUPPORT}
 
 
 app.mount('/', StaticFiles(directory=ROOT / 'web', html=True), name='web')

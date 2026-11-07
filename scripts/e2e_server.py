@@ -22,9 +22,17 @@ results = []
 
 for _ in range(120):
     try:
-        if c.get('/api/status').status_code == 200: break
+        if c.get('/api/status').status_code in (200, 401): break
     except httpx.HTTPError: pass
     time.sleep(1)
+# Demo login (on unless the server runs with FORCECRM_AUTH=0): unauthenticated API calls get 401,
+# a new username creates its account, and the session cookie carries the rest of the run.
+if c.get('/api/status').status_code == 401:
+    results.append(ok(c.get('/', follow_redirects=False).status_code == 303, 'app page redirects to login (303)'))
+    lg = c.post('/api/auth/login', headers=H, data={'username': 'e2e-test', 'password': 'e2e-test'})
+    results.append(ok(lg.status_code == 200, f"login as e2e-test (created={lg.json().get('created')})"))
+    wrong = c.post('/api/auth/login', headers=H, data={'username': 'e2e-test', 'password': 'wrong'}).status_code
+    results.append(ok(wrong == 401, 'wrong password for an existing user rejected (401)'))
 st = c.get('/api/status').json()
 results.append(ok(st['embedding_ready'], f"status: embeddings ready, llm={st['llm']}, venues={st['data']['venues']}"))
 
@@ -44,7 +52,7 @@ if MODE == 'restore':
     results.append(ok(j['status'] == 'complete' and len(j['candidates']) >= 2000, f"restored job complete, {len(j['candidates']):,} candidates, {len(j['profiles'])} profiles"))
     exports(job)
 else:
-    for path in ['/', '/app.js', '/style.css', '/theme.js', '/greece-map.json']:
+    for path in ['/', '/login.html', '/app.js', '/onboarding.js', '/login.js', '/style.css', '/theme.js', '/greece-map.json']:
         results.append(ok(c.get(path).status_code == 200, f'static {path}'))
     t = c.get('/api/template')
     results.append(ok(t.status_code == 200 and t.content[:2] == b'PK', 'template download is an .xlsx'))

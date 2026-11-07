@@ -23,6 +23,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
   - Never produce anything resembling a credit or solvency score (AI Act trap, see below).
   - The only outbound runtime call is the **opt-in** live ΓΕΜΗ check (`forcecrm/live.py`): prospect ΑΦΜ only, the user's own key. Keep it opt-in and declared (README, `docs/ENRICHMENT.md`, card, `docs/RESPONSIBLE_AI.md`).
   - Profile titles come from `forcecrm/titles.py`: the LLM picks phrases, stored in `activity_families`. Don't confuse this with the per-ΚΑΔ `activity_mix` from `evidence.py`.
+  - Login and help chat (`forcecrm/auth.py`, `forcecrm/assistant.py`, `web/login.*`, `web/onboarding.js`): demo accounts only, all local. The assistant uses `DEFAULT_LLM`, answers only from `assistant.HELP`, and must stay out of profiles/scores/ranking. Update `HELP` when the UI changes. Support hand-off is rule-based (`HUMAN_TERMS`, `PROBLEM_TERMS`, repeated question), not left to the model.
   - Never commit data or outputs: `*.csv`, `*.xlsx`, `outputs/`, `models/` and `.cache/` are gitignored.
 
 ### Environment on this Mac (Apple A18 Pro, 8 GB RAM, macOS 27)
@@ -46,8 +47,8 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
 | Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min cold (mostly the 3 LLM titles + descriptions); ~2 s when every stage is cached (`.cache/stages/`). `--from-stage <s>` recomputes `s` and everything after it, `--until-stage <s>` stops there, `--no-cache` skips the disk cache. `--model` defaults to `DEFAULT_LLM` |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
-| Tests | `.venv/bin/python -m pytest -q` | 63 pass |
-| End-to-end (running server) | `.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio <xlsx> [--mode full\|weights\|restore]` | Drives the same HTTP calls as the browser. The server reads CSVs and `models/e5-small` from the repo root |
+| Tests | `.venv/bin/python -m pytest -q` | 75 pass (`tests/conftest.py` sets `FORCECRM_AUTH=0`; `tests/test_auth.py` turns the login back on) |
+| End-to-end (running server) | `.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio <xlsx> [--mode full\|weights\|restore]` | Drives the same HTTP calls as the browser, signing in first as `e2e-test` (delete that user from `.cache/forcecrm.sqlite` before a demo). The server reads CSVs and `models/e5-small` from the repo root |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
 | Benchmarks | `scripts.benchmark embeddings` / `embedding-recall --portfolio <xlsx>` / `llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |

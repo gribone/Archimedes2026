@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ForceCRM · Σύνδεση</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2315584a'/%3E%3Cpath d='M12 10h18v5H18v5h10v5H18v8h-6z' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/theme.js"></script>
+    <script defer src="/login.js"></script>
+  </head>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-card card" aria-labelledby="login-title">
+        <div class="brand login-brand">
+          <span class="brandmark">F<span>↗</span></span
+          ><span
+            >Force<span class="light">CRM</span
+            ><small>CUSTOMER INTELLIGENCE</small></span
+          >
+        </div>
+        <p class="eyebrow">ΚΑΛΩΣ ΗΡΘΑΤΕ</p>
+        <h1 id="login-title">Συνδεθείτε για να ξεκινήσετε</h1>
+        <p class="login-copy">
+          Πρώτη φορά εδώ; Γράψτε ένα όνομα χρήστη και έναν κωδικό της
+          επιλογής σας και ο λογαριασμός σας δημιουργείται αυτόματα.
+        </p>
+        <form id="login-form" class="login-form" novalidate>
+          <label class="login-field"
+            ><span>Όνομα χρήστη</span
+            ><input
+              id="login-username"
+              name="username"
+              autocomplete="username"
+              maxlength="64"
+              required
+              autofocus
+          /></label>
+          <label class="login-field"
+            ><span>Κωδικός πρόσβασης</span
+            ><input
+              id="login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              maxlength="256"
+              required
+          /></label>
+          <div id="login-error" class="alert error hidden" role="alert"></div>
+          <button class="button primary" id="login-submit" type="submit">
+            Σύνδεση <span>→</span>
+          </button>
+        </form>
+        <p class="login-note">
+          ⓘ &nbsp;Λογαριασμός επίδειξης: τα στοιχεία αποθηκεύονται μόνο σε αυτόν
+          τον υπολογιστή (κρυπτογραφημένος κωδικός, τοπική βάση SQLite).
+        </p>
+      </section>
+      <p class="login-footer">
+        <span class="local-indicator"><i></i> Local intelligence</span> · Η
+        ανάλυση παραμένει στον υπολογιστή σας.
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Σκοτεινό θέμα">☾</button>
+      </p>
+    </main>
+  </body>
+</html>

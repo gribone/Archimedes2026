@@ -19,11 +19,13 @@ ForceCRM · local B2B prospect research for Greek food-service businesses · 7 N
   - The upload is limited to ΑΦΜ and revenue, and everything runs on the laptop.
   - The optional live ΓΕΜΗ check sends only prospect ΑΦΜ (public-registry identifiers) with the user's own key, never the customer list or revenue.
   - Run folders and caches stay local and can be deleted by the user.
+  - Demo accounts (username, scrypt password hash) and support tickets are stored only in the local SQLite file.
 
 ## 3. What does the user see about how a result arose?
 - **Transparency (Art. 50, applicable from 2 August 2026):** every AI-written text is labelled.
   - In the UI, each AI text carries an "AI-GENERATED · LOCAL LLM" tag.
   - In `profiles.json`: `ai_generated`, `description_status` and `title_source`. Each sentence also records its `author` (local LLM or verified template) and its source fact.
+  - The in-app help assistant labels each answer "AI · τοπικό μοντέλο" or "σταθερή απάντηση", and its header warns that answers can contain mistakes.
 - **Evidence behind every profile:** counts, revenue share, traits with lift, p-value and q-value, bootstrap stability, fit confidence and the activity mix against the market.
 - **Prospect justifications** name the shared traits and the similarity figures. Prospects outside a profile's acceptance radius are marked «Διερευνητική πρόταση».
 - **Reproducibility:** generation settings are fixed (temperature 0, seed 42), and model identity, prompt hash and rejected drafts are recorded.
@@ -38,6 +40,7 @@ ForceCRM · local B2B prospect research for Greek food-service businesses · 7 N
 | Branch leakage or double counting | Counts, holdout and exclusion all per ΑΦΜ; revenue split across branches |
 | Poor ranking | Internal holdout vs the primary-ΚΑΔ baseline (Recall@500/2000, 5 splits) |
 | Over-reliance on scores | Scores are uncalibrated similarity, stated in the UI and description: "not a purchase probability" |
+| Help assistant gives wrong guidance | Answers only from a fixed help text and read-only analysis facts; credit/solvency questions refused without the model; rule-based hand-off to human support (request for a person, problem report, repeated question) plus a permanent support button |
 | Geographic bias | Profiles that are mainly geographic are documented as such; business traits shared across regions are shown separately |
 
 **AI literacy (Art. 4).** The UI section "Πώς λειτουργεί — και πού χρειάζεται προσοχή", the [architecture](ARCHITECTURE.md) and the [model & data card](MODEL_DATA_CARD.md) explain the inputs, weights, statistics, model limits and failure modes, so both builders and users know what the system does and where it fails.

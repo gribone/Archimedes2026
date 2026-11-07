@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/style.css" />
     <script src="/theme.js"></script>
     <script defer src="/app.js"></script>
+    <script defer src="/onboarding.js"></script>
   </head>
   <body>
     <aside class="sidebar">
@@ -53,8 +54,16 @@
         </div>
         <div class="top-right">
           <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Σκοτεινό θέμα">☾</button
+          ><button id="tour-button" class="theme-toggle" type="button" aria-label="Ξενάγηση στην εφαρμογή" title="Ξενάγηση στην εφαρμογή">?</button
           ><span class="pill">● &nbsp; Local runtime</span
-          ><span class="avatar">FC</span>
+          ><div class="user-menu">
+            <button id="user-button" class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="user-dropdown" aria-label="Λογαριασμός">FC</button>
+            <div id="user-dropdown" class="user-dropdown hidden" role="menu">
+              <p><small>Συνδεδεμένος χρήστης</small><strong id="user-name">—</strong></p>
+              <button type="button" role="menuitem" id="menu-tour">Επανάληψη ξενάγησης</button>
+              <button type="button" role="menuitem" id="logout-button">Αποσύνδεση</button>
+            </div>
+          </div>
         </div>
       </header>
       <main>
