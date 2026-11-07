@@ -39,6 +39,9 @@ async def local_security(request: Request, call_next):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+    # Revalidate the UI files on every load (cheap ETag check on localhost), so an updated
+    # app.js/style.css is never hidden by the browser's heuristic cache.
+    response.headers.setdefault('Cache-Control', 'no-cache')
     return response
 
 

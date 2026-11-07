@@ -9,6 +9,7 @@
   --paper: #f6f7f3;
   --white: #fff;
   --gold: #b98c43;
+  --gold-text: #7f5c1f;
   --radius: 12px;
   --surface: #fff;
   --on-accent: #fff;
@@ -86,6 +87,7 @@
   --paper: #0e1412;
   --white: #161e1b;
   --gold: #d0a85e;
+  --gold-text: #d0a85e;
   --surface: #151d1a;
   --accent-text: #6cc6a6;
   --map-bg: #121916;
@@ -162,6 +164,7 @@
     --paper: #0e1412;
     --white: #161e1b;
     --gold: #d0a85e;
+    --gold-text: #d0a85e;
     --surface: #151d1a;
     --accent-text: #6cc6a6;
     --map-bg: #121916;
@@ -964,7 +967,91 @@ footer > span:last-child {
 .profile-detail {
   margin-bottom: 20px;
 }
-.profile-detail > header {
+/* Portfolio-wide traits: a collapsible panel, shaded apart from the profile cards. */
+details.portfolio-traits {
+  margin: 0 0 32px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--mint);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: var(--radius);
+}
+details.portfolio-traits > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 24px;
+  padding: 14px 18px;
+}
+details.portfolio-traits > summary,
+details.profile-detail > summary {
+  list-style: none;
+}
+details.portfolio-traits > summary::-webkit-details-marker,
+details.profile-detail > summary::-webkit-details-marker {
+  display: none;
+}
+details.portfolio-traits > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details.portfolio-traits[open] > summary::after {
+  transform: rotate(180deg);
+}
+/* Profile cards collapse to their header; undo the generic small-print <details> style. */
+details.profile-detail {
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+details.profile-detail > summary {
+  font-weight: inherit;
+}
+details.profile-detail > summary > div {
+  margin-right: auto;
+}
+/* Open/closed indicator: a full-height bar on the left when expanded, a dot when collapsed. */
+details.profile-detail {
+  position: relative;
+}
+details.profile-detail::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent-text);
+  transition: top 0.25s ease, height 0.25s ease, width 0.25s ease, left 0.25s ease;
+}
+details.profile-detail[open]::before {
+  left: 11px;
+  top: 24px;
+  width: 4px;
+  height: calc(100% - 48px);
+}
+.portfolio-traits-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-text);
+}
+.portfolio-traits-count {
+  font-weight: 600;
+}
+.portfolio-traits-body {
+  padding: 0 18px 16px;
+}
+.portfolio-traits-body .description {
+  line-height: 1.9;
+  max-width: 1000px;
+}
+.profile-detail > header,
+details.profile-detail > summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1382,6 +1469,9 @@ pre {
   }
   .profile-detail > header {
     display: block;
+  }
+  details.profile-detail > summary {
+    flex-wrap: wrap;
   }
   .pagination {
     gap: 10px;
