@@ -1,0 +1,122 @@
+[
+  {
+    "status": "internal VAT holdout; not the organizer\u2019s hidden holdout",
+    "seed": 2026,
+    "train_customers": 240,
+    "held_out_customers": 60,
+    "metrics": [
+      {
+        "k": 500,
+        "recall": 0.21666666666666667,
+        "previous_recall": 0.15,
+        "baseline_recall": 0.016666666666666666,
+        "absolute_uplift": 0.2,
+        "relative_uplift": 12.0
+      },
+      {
+        "k": 2000,
+        "recall": 0.55,
+        "previous_recall": 0.3333333333333333,
+        "baseline_recall": 0.08333333333333333,
+        "absolute_uplift": 0.46666666666666673,
+        "relative_uplift": 5.6000000000000005
+      }
+    ]
+  },
+  {
+    "status": "internal VAT holdout; not the organizer\u2019s hidden holdout",
+    "seed": 17,
+    "train_customers": 240,
+    "held_out_customers": 60,
+    "metrics": [
+      {
+        "k": 500,
+        "recall": 0.16666666666666666,
+        "previous_recall": 0.08333333333333333,
+        "baseline_recall": 0.03333333333333333,
+        "absolute_uplift": 0.13333333333333333,
+        "relative_uplift": 4.0
+      },
+      {
+        "k": 2000,
+        "recall": 0.5333333333333333,
+        "previous_recall": 0.2833333333333333,
+        "baseline_recall": 0.08333333333333333,
+        "absolute_uplift": 0.45,
+        "relative_uplift": 5.4
+      }
+    ]
+  },
+  {
+    "status": "internal VAT holdout; not the organizer\u2019s hidden holdout",
+    "seed": 43,
+    "train_customers": 240,
+    "held_out_customers": 60,
+    "metrics": [
+      {
+        "k": 500,
+        "recall": 0.13333333333333333,
+        "previous_recall": 0.06666666666666667,
+        "baseline_recall": 0.0,
+        "absolute_uplift": 0.13333333333333333,
+        "relative_uplift": null
+      },
+      {
+        "k": 2000,
+        "recall": 0.4,
+        "previous_recall": 0.26666666666666666,
+        "baseline_recall": 0.1,
+        "absolute_uplift": 0.30000000000000004,
+        "relative_uplift": 3.0
+      }
+    ]
+  },
+  {
+    "status": "internal VAT holdout; not the organizer\u2019s hidden holdout",
+    "seed": 101,
+    "train_customers": 240,
+    "held_out_customers": 60,
+    "metrics": [
+      {
+        "k": 500,
+        "recall": 0.16666666666666666,
+        "previous_recall": 0.1,
+        "baseline_recall": 0.0,
+        "absolute_uplift": 0.16666666666666666,
+        "relative_uplift": null
+      },
+      {
+        "k": 2000,
+        "recall": 0.5,
+        "previous_recall": 0.3,
+        "baseline_recall": 0.08333333333333333,
+        "absolute_uplift": 0.4166666666666667,
+        "relative_uplift": 5.0
+      }
+    ]
+  },
+  {
+    "status": "internal VAT holdout; not the organizer\u2019s hidden holdout",
+    "seed": 713,
+    "train_customers": 240,
+    "held_out_customers": 60,
+    "metrics": [
+      {
+        "k": 500,
+        "recall": 0.21666666666666667,
+        "previous_recall": 0.1,
+        "baseline_recall": 0.016666666666666666,
+        "absolute_uplift": 0.2,
+        "relative_uplift": 12.0
+      },
+      {
+        "k": 2000,
+        "recall": 0.5333333333333333,
+        "previous_recall": 0.21666666666666667,
+        "baseline_recall": 0.05,
+        "absolute_uplift": 0.48333333333333334,
+        "relative_uplift": 9.666666666666666
+      }
+    ]
+  }
+]

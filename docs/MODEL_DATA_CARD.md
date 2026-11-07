@@ -34,12 +34,12 @@ The embedding comparison encoded 75 Greek foodservice descriptions. Eligible que
 
 E5-small tied E5-base on this proxy while encoding descriptions about 3.3 times faster. RSS includes interpreter and allocator memory. See the benchmark runner and the local results in `outputs/embedding-comparison.json` and `outputs/llm-comparison.json`.
 
-On an Intel Core i3-1215U with 7.7 GiB RAM, the real portfolio run took 584.5 seconds with cached embeddings and fresh Greek drafts. Each of three descriptions took 170–188 seconds. Ollama reported 2.34 GiB allocated during CPU inference. Python RSS at completion was 173 MiB. A subsequent web run with both caches populated took 31.4 seconds and produced byte-identical assignment and recommendation CSVs.
+On an Intel Core i3-1215U with 7.7 GiB RAM, the original portfolio run took 584.5 seconds with cached embeddings and fresh Greek drafts. Each of three descriptions took 170–188 seconds. Ollama reported 2.34 GiB allocated during CPU inference. Python RSS at completion was 173 MiB. A subsequent web run with both caches populated took 31.4 seconds and produced byte-identical assignment and recommendation CSVs.
 
 | Internal evaluation on 60 held-out VATs | ForceCRM | Primary-code baseline |
 |---|---:|---:|
-| Recall@500 | 9/60 (15.0%) | 1/60 (1.7%) |
-| Recall@2,000 | 20/60 (33.3%) | 5/60 (8.3%) |
+| Recall@500 | 13/60 (21.7%) | 1/60 (1.7%) |
+| Recall@2,000 | 33/60 (55.0%) | 5/60 (8.3%) |
 
 The seeded split trained on the other 240 customers. The organizer retains a separate hidden set. The three profiles had mean VAT-bootstrap Jaccard scores of 93.0%, 88.4% and 91.4%. All 24,424 venues received a score, 4,564 fell outside their nearest profile radius, and ranking yielded 23,645 distinct prospective VATs.
 

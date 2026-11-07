@@ -15,6 +15,7 @@ from .data import FILES, load_universe
 from .evidence import significant_features
 from .features import build_features
 from .narrative import narrate, DEFAULT_LLM
+from .affinity import market_affinity
 
 
 def fit_portfolio(X, companies, portfolio):
@@ -40,10 +41,14 @@ def fit_portfolio(X, companies, portfolio):
             'radii': radii, 'accepted': accepted, 'similarity': similarity}
 
 
-def rank_candidates(companies, fit, customer_vats, traits=None, profiles=None, limit=None):
+def rank_candidates(companies, fit, customer_vats, traits=None, profiles=None, limit=None, primary_codes=None):
     idx = np.flatnonzero(~companies.vat.isin(customer_vats).to_numpy())
+    score = fit['similarity']
+    if primary_codes is not None:
+        lift = market_affinity(companies, customer_vats, primary_codes)
+        score = score * (1 / (1 + np.exp(-lift)))
     table = pd.DataFrame({'index': idx, 'vat': companies.vat.to_numpy()[idx],
-                          'company_id': companies.company_id.to_numpy()[idx], 'score': fit['similarity'][idx]})
+                          'company_id': companies.company_id.to_numpy()[idx], 'score': score[idx]})
     # One best venue per VAT. Stable tie-break makes the global evaluation order reproducible.
     table = table.sort_values(['score', 'company_id'], ascending=[False, True]).drop_duplicates('vat')
     if limit is not None:
@@ -57,6 +62,8 @@ def rank_candidates(companies, fit, customer_vats, traits=None, profiles=None, l
         if traits is not None and profiles is not None:
             reasons = [f['label'] for f in profiles[j]['significant_features'] if f['feature'] in traits[i]][:2]
         rationale = '; '.join(reasons) if reasons else 'Ομοιότητα δραστηριότητας, γεωγραφίας, νομικής μορφής και ηλικίας'
+        if primary_codes is not None:
+            rationale += f' · Ομοιότητα {fit["similarity"][i]:.1%}, σχετική συγκέντρωση πελατών {np.exp(lift[i]):.2f}×.'
         if not accepted:
             rationale = 'Διερευνητική πρόταση — εκτός ορίου αντιστοίχισης. ' + rationale
         rows.append({'profile_id': f'ICP-{j + 1:02}', 'company_id': row.company_id, 'rank': rank,
@@ -72,7 +79,8 @@ def evaluate_holdout(X, companies, portfolio, primary_codes, seed=2026):
     if len(train) < 5:
         return {'status': 'too_few_customers'}
     fitted = fit_portfolio(X, companies, train)
-    ranked = rank_candidates(companies, fitted, set(train.vat))
+    ranked = rank_candidates(companies, fitted, set(train.vat), primary_codes=primary_codes)
+    original = rank_candidates(companies, fitted, set(train.vat), limit=2000)
     # Baseline primary-code prevalence counts each train VAT at most once per code.
     frequencies = {}
     for vat in train.vat:
@@ -88,7 +96,8 @@ def evaluate_holdout(X, companies, portfolio, primary_codes, seed=2026):
     for k in [500, 2000]:
         recall = len(set(ranked.head(k).company_id.map(lookup)) & withheld) / len(withheld)
         base = len(set(baseline.head(k).vat) & withheld) / len(withheld)
-        result['metrics'].append({'k': k, 'recall': recall, 'baseline_recall': base,
+        old = len(set(original.head(k).company_id.map(lookup)) & withheld) / len(withheld)
+        result['metrics'].append({'k': k, 'recall': recall, 'previous_recall': old, 'baseline_recall': base,
                                   'absolute_uplift': recall - base, 'relative_uplift': recall / base - 1 if base else None})
     return result
 
@@ -138,7 +147,7 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     ids[~fit['accepted']] = 'NONE'
     assignments = pd.DataFrame({'company_id': c.company_id, 'profile_id': ids, 'score': fit['similarity']})
     progress('Ranking non-customer businesses')
-    lookalikes = rank_candidates(c, fit, set(portfolio.vat), traits, profiles)
+    lookalikes = rank_candidates(c, fit, set(portfolio.vat), traits, profiles, primary_codes=primary)
     validation = None
     if evaluate:
         progress('Running an internal 20% VAT holdout against the primary-code baseline')
