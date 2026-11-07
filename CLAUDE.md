@@ -44,7 +44,6 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - `data/` in the repo = symlinks to `../Data` created for the ICP branch (untracked on `main`; safe to delete).
 - `.venv/` in the repo is the ICP branch's uv env (1.5 GB); `main`'s `run.py` would reuse the `.venv` path, so delete it before running `main` here.
 - Two git worktrees (`local-ai`, `stage1`) are registered in a temporary scratchpad from the review session; once that folder is gone, run `git worktree prune`.
-- `CLAUDE.md` itself is not committed (user hasn't asked).
 
 ## Goal
 "Who will be the next customer?" — a localhost web app (any stack) for Greek food-service businesses (ΚΑΔ 56).
