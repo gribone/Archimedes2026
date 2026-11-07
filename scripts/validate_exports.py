@@ -1,0 +1,46 @@
+"""Validate actual grading files against source data and customer exclusion rules."""
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from forcecrm.data import load_universe, read_portfolio
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output', type=Path, default=Path('outputs/real'))
+    parser.add_argument('--portfolio', type=Path, default=Path('ForceCRM_Hackathon_Pelatologio.xlsx'))
+    args = parser.parse_args()
+    c, _, _, _ = load_universe(Path('.'))
+    p = read_portfolio(args.portfolio, c)
+    profiles = json.loads((args.output / 'profiles.json').read_text('utf-8'))
+    assignments = pd.read_csv(args.output / 'assignments.csv', dtype={'company_id': str})
+    candidates = pd.read_csv(args.output / 'lookalikes.csv', dtype={'company_id': str})
+    assert 1 <= len(profiles) <= 6
+    assert abs(sum(row['revenue_share'] for row in profiles) - 1) < 1e-8
+    assert assignments.company_id.is_unique
+    assert set(assignments.company_id) == set(c.company_id)
+    assert assignments.columns.tolist() == ['company_id', 'profile_id', 'score']
+    assert candidates.columns.tolist() == ['profile_id', 'company_id', 'rank', 'score', 'rationale']
+    assert len(candidates) >= 2000
+    assert candidates.company_id.is_unique
+    assert candidates['rank'].tolist() == list(range(1, len(candidates) + 1))
+    assert candidates.score.is_monotonic_decreasing
+    assert np.isfinite(candidates.score).all() and candidates.score.between(0, 1).all()
+    vats = candidates.company_id.map(c.set_index('company_id').vat)
+    assert vats.notna().all() and vats.is_unique
+    assert not set(vats) & set(p.vat)
+    ids = {row['profile_id'] for row in profiles}
+    assert set(assignments.profile_id) <= ids | {'NONE'}
+    assert set(candidates.profile_id) <= ids
+    for profile in profiles:
+        assert profile['ai_generated'] is True
+        assert profile['description'] == ' '.join(claim['sentence'] for claim in profile['claims'])
+        assert 0 <= profile['stability'] <= 1 and 0 <= profile['confidence_score'] <= 1
+        assert all(f['q_value'] <= .05 and f['count'] >= 5 and f['lift'] >= 1.2 for f in profile['significant_features'])
+    print(f'PASS: {len(profiles)} grounded profiles, {len(assignments)} venue assignments, {len(candidates)} unique non-customer VAT recommendations.')
+
+
+if __name__ == '__main__':
+    main()

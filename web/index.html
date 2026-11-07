@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ForceCRM · Customer Intelligence</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2315584a'/%3E%3Cpath d='M12 10h18v5H18v5h10v5H18v8h-6z' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="ForceCRM home"
+        ><span class="brandmark">F<span>↗</span></span
+        ><span
+          >Force<span class="light">CRM</span
+          ><small>CUSTOMER INTELLIGENCE</small></span
+        ></a
+      >
+      <div class="workspace">
+        <span class="workspace-icon">ΕΛ</span>
+        <div>Ελληνική αγορά<small>HORECA · 2020–2024</small></div>
+        <span class="muted">⌄</span>
+      </div>
+      <p class="nav-label">WORKSPACE</p>
+      <nav aria-label="Workspace">
+        <button class="nav active" data-view="overview">
+          <span>◫</span>Επισκόπηση</button
+        ><button class="nav" data-view="profiles">
+          <span>◎</span>Προφίλ πελατών <b id="nav-count">—</b></button
+        ><button class="nav" data-view="prospects">
+          <span>↗</span>Νέες ευκαιρίες</button
+        ><button class="nav" data-view="validation">
+          <span>◈</span>Τεκμηρίωση
+        </button>
+      </nav>
+      <div class="side-bottom">
+        <div class="local-indicator"><i></i> Local intelligence</div>
+        <p>Η ανάλυση παραμένει<br />στον υπολογιστή σας.</p>
+        <div class="side-divider"></div>
+        <small>ForceCRM Challenge<br />NKUA · November 2026</small>
+      </div>
+    </aside>
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <span class="muted">Workspace</span><span class="slash">/</span
+          ><span id="breadcrumb">Επισκόπηση</span>
+        </div>
+        <div class="top-right">
+          <span class="pill">● &nbsp; Local runtime</span
+          ><span class="avatar">FC</span>
+        </div>
+      </header>
+      <main>
+        <section class="page-title">
+          <div>
+            <p class="eyebrow">ΑΠΟ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΗΝ ΕΠΟΜΕΝΗ ΠΩΛΗΣΗ</p>
+            <h1 id="page-heading">Ποιος είναι ο επόμενος πελάτης σας;</h1>
+            <p id="page-subtitle">
+              Γνωρίστε τους καλύτερους πελάτες σας. Βρείτε τις επιχειρήσεις που
+              τους μοιάζουν.
+            </p>
+          </div>
+          <a id="download-all" class="button outline hidden" href="#"
+            >↓ &nbsp; Εξαγωγή αποτελεσμάτων</a
+          >
+        </section>
+        <div id="error" class="alert error hidden" role="alert"></div>
+        <div id="notice" class="alert hidden" role="status"></div>
+        <section id="progress" class="progress-panel hidden" aria-live="polite">
+          <span class="spinner"></span>
+          <div>
+            <strong>Αναλύουμε το πελατολόγιό σας</strong>
+            <p id="progress-message">Προετοιμασία δεδομένων…</p>
+          </div>
+          <span class="progress-hint">Η πρώτη ανάλυση διαρκεί περισσότερο</span>
+        </section>
+        <div id="view-overview" class="view">
+          <section class="stats">
+            <article>
+              <div class="stat-label">
+                Επιχειρήσεις στο σύνολο <span>◉</span>
+              </div>
+              <strong id="stat-universe">—</strong
+              ><small id="stat-venues">Φόρτωση μητρώου…</small>
+            </article>
+            <article>
+              <div class="stat-label">
+                Πελάτες που αναλύθηκαν <span>♧</span>
+              </div>
+              <strong id="stat-customers">—</strong
+              ><small>Μοναδικοί αριθμοί ΑΦΜ</small>
+            </article>
+            <article>
+              <div class="stat-label">Προφίλ πελατών <span>◎</span></div>
+              <strong id="stat-profiles">—</strong
+              ><small>Ανακαλύπτονται από τα δεδομένα</small>
+            </article>
+            <article>
+              <div class="stat-label">Νέες ευκαιρίες <span>↗</span></div>
+              <strong id="stat-opportunities">—</strong
+              ><small>Εκτός υπάρχοντος πελατολογίου</small>
+            </article>
+          </section>
+          <div class="overview-grid">
+            <section class="card upload-card">
+              <div class="section-header">
+                <div>
+                  <span class="step">01</span>
+                  <h2>Ξεκινήστε από τους πελάτες σας</h2>
+                </div>
+                <span class="tag">EXCEL</span>
+              </div>
+              <p class="section-copy">
+                Ανεβάστε το πελατολόγιό σας και ανακαλύψτε τι ενώνει τους
+                πελάτες με τη μεγαλύτερη αξία.
+              </p>
+              <form id="upload-form">
+                <label class="dropzone" id="dropzone" for="portfolio"
+                  ><span class="upload-icon">↥</span
+                  ><strong id="file-label"
+                    >Επιλέξτε ή σύρετε ένα αρχείο Excel</strong
+                  ><span>Στήλες: ΑΦΜ και έσοδα · .xlsx · έως 10 MB</span
+                  ><input type="file" id="portfolio" name="file" accept=".xlsx"
+                /></label>
+                <div class="upload-meta">
+                  <span
+                    >ⓘ &nbsp; Ο τζίρος χρησιμοποιείται μόνο ως βάρος
+                    ανάλυσης.</span
+                  ><a href="/api/template">Λήψη προτύπου ↗</a>
+                </div>
+                <button
+                  class="button primary"
+                  id="analyze-button"
+                  type="submit"
+                >
+                  Ανάλυση πελατολογίου <span>→</span>
+                </button>
+              </form>
+              <div class="demo-line">
+                <span>Θέλετε να δείτε πώς λειτουργεί;</span
+                ><button id="demo-button" class="text-button">
+                  Δοκιμή με demo δεδομένα →
+                </button>
+              </div>
+              <p id="model-status" class="model-status">
+                Έλεγχος τοπικών μοντέλων…
+              </p>
+            </section>
+            <section class="card insight-card">
+              <div class="section-header">
+                <div>
+                  <span class="step">02</span>
+                  <h2>Από την ομοιότητα στην ευκαιρία</h2>
+                </div>
+              </div>
+              <div class="orbit" aria-hidden="true">
+                <div class="orbit-ring ring-one"></div>
+                <div class="orbit-ring ring-two"></div>
+                <span class="orbit-point p1"></span
+                ><span class="orbit-point p2"></span
+                ><span class="orbit-point p3"></span
+                ><span class="orbit-point p4"></span
+                ><span class="orbit-point p5"></span>
+                <div class="orbit-center">◎</div>
+                <span class="orbit-label label-one">Δραστηριότητα</span
+                ><span class="orbit-label label-two">Γεωγραφία</span
+                ><span class="orbit-label label-three">Χαρακτηριστικά</span>
+              </div>
+              <div class="process-row">
+                <span>1</span>
+                <div>
+                  <strong>Ανακαλύψτε τα προφίλ</strong>
+                  <p>Έως 6 ομάδες με κοινά, μετρήσιμα χαρακτηριστικά.</p>
+                </div>
+              </div>
+              <div class="process-row">
+                <span>2</span>
+                <div>
+                  <strong>Κατανοήστε το γιατί</strong>
+                  <p>Ελληνικές περιγραφές με στατιστική τεκμηρίωση.</p>
+                </div>
+              </div>
+              <div class="process-row">
+                <span>3</span>
+                <div>
+                  <strong>Βρείτε την επόμενη ευκαιρία</strong>
+                  <p>Ιεραρχημένες προτάσεις με εξήγηση ομοιότητας.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+          <section id="overview-results" class="hidden">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">ΤΟ ΠΕΛΑΤΟΛΟΓΙΟ ΣΑΣ, ΠΙΟ ΚΑΘΑΡΑ</p>
+                <h2>Τα προφίλ που ανακαλύψαμε</h2>
+              </div>
+              <button class="text-button" data-view="profiles">
+                Προβολή όλων →
+              </button>
+            </div>
+            <div id="profile-summary" class="profile-grid"></div>
+          </section>
+          <section class="trust-strip">
+            <div>
+              <span>◈</span><strong>Μετρήσιμη τεκμηρίωση</strong
+              ><small>Στατιστική σημαντικότητα και έλεγχος σταθερότητας</small>
+            </div>
+            <div>
+              <span>▣</span><strong>100% τοπική εκτέλεση</strong
+              ><small>Χωρίς κλήσεις σε εξωτερικές υπηρεσίες AI</small>
+            </div>
+            <div>
+              <span>◎</span><strong>Διαφανείς προτάσεις</strong
+              ><small>Κάθε περιγραφή συνδέεται με δεδομένα</small>
+            </div>
+          </section>
+        </div>
+        <div id="view-profiles" class="view hidden">
+          <div class="empty-state">
+            Τα προφίλ σας θα εμφανιστούν μετά την ανάλυση ενός πελατολογίου.
+          </div>
+          <div id="profiles-list"></div>
+        </div>
+        <div id="view-prospects" class="view hidden">
+          <div class="empty-state">
+            Αναλύστε ένα πελατολόγιο για να βρείτε νέες επιχειρήσεις.
+          </div>
+          <div id="prospects-content" class="hidden">
+            <div class="prospect-top">
+              <section class="card geography">
+                <div class="section-header">
+                  <h2>Γεωγραφία ευκαιριών</h2>
+                  <span class="tag">GPS · OFFLINE</span>
+                </div>
+                <canvas
+                  id="map"
+                  width="1000"
+                  height="360"
+                  aria-label="Διάγραμμα γεωγραφικών συντεταγμένων προτεινόμενων επιχειρήσεων"
+                ></canvas>
+                <p class="caption">
+                  Γεωγραφικές συντεταγμένες των πρώτων 2.000 προτάσεων · χωρίς
+                  εξωτερικό χάρτη
+                </p>
+              </section>
+              <div class="card candidate-note">
+                <span class="eyebrow">ΠΡΙΝ ΑΠΟ ΤΗΝ ΕΠΙΚΟΙΝΩΝΙΑ</span>
+                <h2>Η ομοιότητα είναι η αρχή.</h2>
+                <p>
+                  Το σκορ δείχνει πόσο μοιάζει μια επιχείρηση με το πλησιέστερο
+                  προφίλ. Δεν είναι πιθανότητα αγοράς.
+                </p>
+                <p>
+                  Οι προτάσεις εκτός ορίου αντιστοίχισης επισημαίνονται ως
+                  διερευνητικές. Επιβεβαιώστε την πραγματική δραστηριότητα πριν
+                  επικοινωνήσετε.
+                </p>
+              </div>
+            </div>
+            <section class="card table-card">
+              <div class="table-controls">
+                <h2>
+                  Προτεινόμενες επιχειρήσεις
+                  <span id="filtered-count" class="tag"></span>
+                </h2>
+                <div>
+                  <label class="sr-only" for="profile-filter">Προφίλ</label
+                  ><select id="profile-filter">
+                    <option value="">Όλα τα προφίλ</option></select
+                  ><label class="sr-only" for="search">Αναζήτηση</label
+                  ><input
+                    id="search"
+                    placeholder="Αναζήτηση επωνυμίας, πόλης ή ΑΦΜ"
+                  />
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Κατάταξη</th>
+                      <th>Επιχείρηση</th>
+                      <th>Προφίλ</th>
+                      <th>Ομοιότητα</th>
+                      <th>Γιατί προτείνεται</th>
+                    </tr>
+                  </thead>
+                  <tbody id="candidates-body"></tbody>
+                </table>
+              </div>
+              <div class="pagination">
+                <span id="page-info"></span>
+                <div>
+                  <button id="prev-page" class="button outline">
+                    ← Προηγούμενη</button
+                  ><button id="next-page" class="button outline">
+                    Επόμενη →
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div id="view-validation" class="view hidden">
+          <div class="empty-state">
+            Η τεκμηρίωση και οι μετρήσεις εμφανίζονται μετά την ανάλυση.
+          </div>
+          <div id="validation-content"></div>
+        </div>
+        <footer>
+          <span
+            >ForceCRM
+            <span class="muted"
+              >· Empowering Sales. Driving Results.</span
+            ></span
+          ><span
+            >Πηγές: GEMI Open Data · © OpenStreetMap contributors (ODbL)<br /><span
+              class="muted"
+              >Δεδομένα αποκλειστικά για τον διαγωνισμό</span
+            ></span
+          >
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
