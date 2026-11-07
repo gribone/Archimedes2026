@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from io import BytesIO
 import json
 import threading
@@ -13,6 +14,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from . import db
 from .data import load_universe, read_portfolio, demo_portfolio
 from .pipeline import run_analysis, export_result
 from .narrative import DEFAULT_LLM
@@ -68,20 +70,20 @@ def latest():
         directory = report_path.parent
         if not all((directory / name).is_file() for name in required):
             continue
-        import pandas as pd
         try:
             profiles = json.loads((directory / 'profiles.json').read_text('utf-8'))
             report = json.loads(report_path.read_text('utf-8'))
-            candidates = pd.read_csv(directory / 'lookalikes.csv', dtype={'company_id': str})
-            c, _, _, _ = load_universe(ROOT)
-            preview = candidates.merge(c[['company_id','vat','company_name_el','city','latitude','longitude']], on='company_id')
-            preview = preview.astype(object).where(preview.notna(), None).to_dict('records')
-        except (ValueError, OSError):
+            with closing(db.connect(ROOT)) as con:
+                if not db.has_run(con, directory.name):
+                    # CLI runs and runs from before the database: import the export folder once.
+                    c, _, _, _ = load_universe(ROOT)
+                    db.save_run_from_directory(con, directory.name, directory, c)
+        except (ValueError, OSError, KeyError):
             continue
         with lock:
             if not jobs:
                 jobs[directory.name] = {'status': 'complete', 'message': 'Restored local analysis',
-                    'directory': directory, 'result': {'profiles': profiles, 'report': report, 'preview': preview}}
+                    'directory': directory, 'result': {'profiles': profiles, 'report': report}}
             return {'job_id': next(iter(jobs))}
     return {'job_id': None}
 
@@ -96,6 +98,10 @@ def worker(job_id, payload, demo, weights=None):
         result = run_analysis(ROOT, portfolio, demo=demo, progress=progress, weights=weights)
         directory = ROOT / 'outputs' / job_id
         export_result(result, directory)
+        with closing(db.connect(ROOT)) as con:
+            db.save_run(con, job_id, result['profiles'], result['report'], result['assignments'],
+                        result['lookalikes'], c, params={'demo': demo, 'weights': weights})
+        result = {'profiles': result['profiles'], 'report': result['report']}  # rows now live in SQLite
         with lock:
             jobs[job_id].update(status='complete', message='Analysis complete', result=result, directory=directory)
     except Exception as exc:
@@ -145,10 +151,55 @@ def job_status(job_id: str):
         if job is None:
             raise HTTPException(404, 'Analysis not found.')
         response = {k: job[k] for k in ['status', 'message']}
-        if job['status'] == 'complete':
-            result = job['result']
-            response.update(profiles=result['profiles'], report=result['report'], candidates=result['preview'])
-        return response
+        if job['status'] != 'complete':
+            return response
+        result = job['result']
+    # The table pages through /api/runs/{id}/lookalikes; only the map's top points come inline.
+    with closing(db.connect(ROOT)) as con:
+        points = db.map_points(con, job_id)
+        total = con.execute('SELECT candidate_count FROM runs WHERE run_id = ?', (job_id,)).fetchone()
+    response.update(profiles=result['profiles'], report=result['report'], candidates=points,
+                    candidate_total=total[0] if total else len(points))
+    return response
+
+
+@app.get('/api/runs')
+def runs(limit: int = 20):
+    with closing(db.connect(ROOT)) as con:
+        return {'runs': db.list_runs(con, max(1, min(limit, 100)))}
+
+
+@app.get('/api/runs/{run_id}/lookalikes')
+def run_lookalikes(run_id: str, profile: str | None = None, q: str | None = None, live: str | None = None,
+                   offset: int = 0, limit: int = 50):
+    if offset < 0 or not 1 <= limit <= 200:
+        raise HTTPException(400, 'offset must be ≥ 0 and limit between 1 and 200.')
+    with closing(db.connect(ROOT)) as con:
+        if not db.has_run(con, run_id):
+            raise HTTPException(404, 'Run not found.')
+        try:
+            return db.query_lookalikes(con, run_id, profile=profile, q=q, live=live, offset=offset, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@app.get('/api/companies')
+def companies(q: str, limit: int = 20):
+    if not q.strip():
+        raise HTTPException(400, 'Empty search.')
+    load_universe(ROOT)  # ensures the universe is imported
+    with closing(db.connect(ROOT)) as con:
+        return {'companies': db.search_companies(con, q.strip(), max(1, min(limit, 100)))}
+
+
+@app.get('/api/companies/{company_id}')
+def company(company_id: str):
+    load_universe(ROOT)
+    with closing(db.connect(ROOT)) as con:
+        detail = db.company_detail(con, company_id)
+    if detail is None:
+        raise HTTPException(404, 'Company not found.')
+    return detail
 
 
 @app.get('/api/jobs/{job_id}/export/{filename}')
@@ -213,8 +264,9 @@ def start_live_check(job_id: str, api_key: str = Form(''), limit: int = Form(50)
         existing = live_runs.get(job_id)
         if existing and existing['status'] == 'running':
             raise HTTPException(409, 'Ο έλεγχος ΓΕΜΗ εκτελείται ήδη.')
-        candidates = sorted(job['result']['preview'], key=lambda c: c['rank'])
-        vats = list(dict.fromkeys(c['vat'] for c in candidates))[:limit]
+        with closing(db.connect(ROOT)) as con:
+            candidates = db.query_lookalikes(con, job_id, limit=limit)['rows']
+        vats = list(dict.fromkeys(c['vat'] for c in candidates))
         run = {'status': 'running', 'message': f'Έλεγχος ΓΕΜΗ: 0/{len(vats)}', 'checked': 0, 'total': len(vats),
                'results': {}, 'stop': threading.Event(), 'requests_per_minute': requests_per_minute(),
                'attribution': ATTRIBUTION}

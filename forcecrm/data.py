@@ -16,9 +16,16 @@ def normalize_vat(value):
     return text.zfill(9)
 
 
-def load_universe(folder: Path):
-    frames = [pd.read_csv(folder / name, sep=';', dtype=str, encoding='utf-8-sig',
-                          na_values=['NULL'], keep_default_na=True).fillna('') for name in FILES]
+def load_universe(folder: Path, use_db=None):
+    """Load the GEMI universe. By default via the embedded SQLite store (`forcecrm.db`), which
+    imports the CSVs once and re-imports only when their SHA-256 changes; FORCECRM_DB=0 or
+    use_db=False reads the CSVs directly. Both paths yield identical frames."""
+    from . import db
+    folder = Path(folder)
+    if db.enabled() if use_db is None else use_db:
+        frames = db.load_raw(folder)
+    else:
+        frames = [db.read_csv(folder / name) for name in FILES]
     c, a, d = frames
     required = [set('company_id vat company_name_el legal_type is_branch city municipality_name prefecture_name incorporation_date latitude longitude'.split()),
                 {'company_id', 'activity_id', 'activity_type', 'date_from'}, {'activity_id', 'description'}]

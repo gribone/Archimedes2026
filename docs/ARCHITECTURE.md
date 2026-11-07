@@ -33,7 +33,8 @@ No external AI service is called at runtime. The only outbound call is an **opt-
 | File | Responsibility |
 |---|---|
 | `run.py` | One-command bootstrap: venv, dependencies, model download, starts Ollama and the server |
-| `forcecrm/data.py` | Loads and validates the CSVs and the uploaded Excel; normalises ΑΦΜ |
+| `forcecrm/data.py` | Loads and validates the GEMI universe and the uploaded Excel; normalises ΑΦΜ |
+| `forcecrm/db.py` | Embedded SQLite store (`.cache/forcecrm.sqlite`): imported universe, analysis runs, ΓΕΜΗ statuses, users table for T1 (§2.12) |
 | `forcecrm/enrichment.py` | Offline OpenStreetMap venue matching and ELSTAT tourism bands (extra points X2/X3) |
 | `forcecrm/features.py` | Builds the business vector (A1) and the trait sets used for statistics |
 | `forcecrm/clustering.py` | Profile discovery (A2) and bootstrap stability (A5) |
@@ -49,6 +50,7 @@ No external AI service is called at runtime. The only outbound call is an **opt-
 ## 2. Pipeline, step by step
 
 ### 2.1 Load and validate (`data.py`)
+- The universe is read through the embedded SQLite store (§2.12). It imports the CSVs once and re-imports only when their SHA-256 changes; `FORCECRM_DB=0` reads the CSVs directly. Both paths return identical frames (tested).
 - Reads the three `;`-separated CSVs (UTF-8 BOM, decimal comma, `NULL` as empty). It checks required columns and duplicate IDs, normalises ΑΦΜ to 9 digits, and sorts venues by `company_id`.
 - Activity types are mapped to `primary`, `secondary` or `auxiliary`.
 - The Excel is read with Greek or English column aliases (`ΑΦΜ`/`VAT`, `Τζίρος (€)`/`revenue`). It is rejected if any ΑΦΜ is unknown, duplicated, or there are fewer than 5 customers. The portfolio is **sorted by ΑΦΜ**, so the row order of the Excel never matters.
@@ -150,15 +152,35 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 - The prospects map is drawn over an offline Natural Earth outline of Greece.
 - FastAPI bound to `127.0.0.1`, with a middleware that rejects cross-site requests.
 - `POST /api/analyze` starts the pipeline in a background thread, and the UI polls `/api/jobs/{id}` for progress.
-- Each job writes to `outputs/<job_id>/`. The files can be downloaded through `/api/jobs/{id}/export/{file}`, and the latest completed run is restored on startup.
+- Each job writes to `outputs/<job_id>/` and is stored in SQLite (§2.12). The files can be downloaded through `/api/jobs/{id}/export/{file}`, and the latest completed run is restored on startup (export folders not yet in the database, e.g. CLI runs, are imported once).
+- The job response carries the profiles, the report and only the top 2,000 map points (~0.4 MB instead of the full 11 MB list). The prospects table pages through `/api/runs/{id}/lookalikes`, with profile, search and ΓΕΜΗ-status filters applied in SQL.
 - A **demo mode** uses a synthetic portfolio, lexical TF-IDF instead of E5, and no LLM. It is clearly labelled and not valid for submission.
 
 ### 2.11 Optional live ΓΕΜΗ status check (`live.py`)
 After an analysis, the user can check whether the top N prospects (≤ 200) are still active in the ΓΕΜΗ Open Data API, using their own `api_key`.
 - **Data sent:** only prospect ΑΦΜ.
-- **Limits:** 8 requests per minute by default, with back-off on 429/5xx. Results are cached for 7 days in `.cache/gemi-status.json`.
+- **Limits:** 8 requests per minute by default, with back-off on 429/5xx. Results are cached for 7 days in the SQLite `gemi_status` table (an older `.cache/gemi-status.json` is migrated once).
 - **Output:** `live-status.csv`, with ODC-BY attribution.
 - It runs in its own thread, can be stopped, and **never changes profiles, scores or ranking**.
+
+### 2.12 Embedded data store (`db.py`, SQLite)
+"Serverless" in the literal sense: one file, `.cache/forcecrm.sqlite` (gitignored), the standard-library `sqlite3` driver, no daemon, nothing to install. It keeps the one-command setup.
+
+| Table | Contents |
+|---|---|
+| `companies`, `activities`, `activity_descriptions` | The three GEMI CSVs, stored exactly as pandas parses them (text columns, original row order). Indexed by `company_id`, `vat`, municipality and activity |
+| `meta` | CSV SHA-256 hashes, column order, import time |
+| `runs` | One row per analysis: parameters (demo, weights), portfolio hash, input hashes, full `report.json` |
+| `profiles`, `profile_traits` | Profiles (full JSON plus key columns) and their significant traits (lift, p, q) |
+| `assignments`, `lookalikes` | Per-run venue assignments and ranked prospects, with display fields and a folded search key; indexed by run + rank and run + profile + rank |
+| `gemi_status` | Live ΓΕΜΗ results (7-day cache), joined into prospect queries for the status filters |
+| `users` | Schema only, reserved for the local login in T1 |
+
+- **Import:** on first use, and whenever a CSV's SHA-256 changes, inside one transaction (`BEGIN IMMEDIATE`, so concurrent server threads cannot import twice). Measured on the full data: cold import 1.5 s, warm load 0.6 s (direct CSV read: 0.5 s); file size 20 MB.
+- **Why rows are stored raw:** `data.load_universe` applies the same normalisation (ΑΦΜ padding, decimal commas, sorting) on top of either source, so the analysis sees identical frames. The exports are unchanged: `lookalikes.csv`, `assignments.csv` and `enrichment.csv` are byte-identical before and after; `profiles.json` differs only in the measured `llm.seconds`, which varies on every run.
+- **Search:** SQLite's `lower()` is ASCII-only, so a registered `fold()` function (casefold + strip accents) builds the search key; "ταβερνα" finds "Ταβέρνα".
+- **API:** `GET /api/runs`, `GET /api/runs/{id}/lookalikes?profile=&q=&live=&offset=&limit=` (limit ≤ 200), `GET /api/companies?q=`, `GET /api/companies/{company_id}` (venue, ΚΑΔ with descriptions, stored ΓΕΜΗ status).
+- **The files stay the deliverable.** The graded exports are still written by `export_result`; the database adds querying, history and caching on top and never replaces them.
 
 ## 3. Why the profiles are mostly geographic
 

@@ -14,9 +14,12 @@ import json
 import os
 import threading
 import time
+from contextlib import closing
 from pathlib import Path
 
 import httpx
+
+from . import db
 
 GEMI_API = os.environ.get('GEMI_API_URL', 'https://opendata-api.businessportal.gr/api/opendata/v1')
 CACHE_DAYS = 7
@@ -73,53 +76,52 @@ def lookup(client, vat, api_key, retries=3, sleep=time.sleep):
         return classify(response.json())
 
 
-def load_cache(path: Path):
+def migrate_json_cache(con, root: Path):
+    """One-off: move results from the pre-database JSON cache into SQLite."""
+    legacy = root / '.cache' / 'gemi-status.json'
     try:
-        return json.loads(path.read_text('utf-8'))
+        entries = json.loads(legacy.read_text('utf-8'))
     except (OSError, ValueError):
-        return {}
-
-
-def save_cache(path: Path, cache):
-    path.parent.mkdir(exist_ok=True)
-    tmp = path.with_suffix('.tmp')
-    tmp.write_text(json.dumps(cache, ensure_ascii=False), 'utf-8')
-    tmp.replace(path)
+        return
+    for vat, result in entries.items():
+        if 'checked_at' in result and db.get_gemi_status(con, vat) is None:
+            db.put_gemi_status(con, vat, result)
+    legacy.replace(legacy.with_suffix('.json.migrated'))
 
 
 def check_vats(vats, api_key, root: Path, on_result, should_stop=lambda: False, client=None, sleep=time.sleep):
-    """Check each VAT, reusing results younger than CACHE_DAYS. Calls on_result(vat, result)."""
+    """Check each VAT, reusing results younger than CACHE_DAYS (stored in the SQLite
+    `gemi_status` table). Calls on_result(vat, result)."""
     if not api_key:
         raise LiveCheckError('Απαιτείται προσωπικό api_key του ΓΕΜΗ.')
-    cache_path = root / '.cache' / 'gemi-status.json'
-    with _cache_lock:
-        cache = load_cache(cache_path)
     fresh_after = datetime.now(timezone.utc) - timedelta(days=CACHE_DAYS)
     interval = 60.0 / requests_per_minute()
     own_client = client is None
     client = client or httpx.Client(timeout=30, trust_env=True)
     last_call = None
-    try:
-        for vat in vats:
-            if should_stop():
-                break
-            cached = cache.get(vat)
-            if cached and datetime.fromisoformat(cached['checked_at']) > fresh_after:
-                on_result(vat, {**cached, 'cached': True})
-                continue
-            if last_call is not None:
-                sleep(max(0.0, interval - (time.monotonic() - last_call)))
-            last_call = time.monotonic()
-            result = lookup(client, vat, api_key, sleep=sleep)
-            result['checked_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
-            if result['status'] != 'error':
-                cache[vat] = result
-                with _cache_lock:
-                    save_cache(cache_path, cache)
-            on_result(vat, {**result, 'cached': False})
-    finally:
-        if own_client:
-            client.close()
+    with closing(db.connect(root)) as con:
+        with _cache_lock:
+            migrate_json_cache(con, root)
+        try:
+            for vat in vats:
+                if should_stop():
+                    break
+                cached = db.get_gemi_status(con, vat)
+                if cached and datetime.fromisoformat(cached['checked_at']) > fresh_after:
+                    cached.pop('vat', None)
+                    on_result(vat, {**cached, 'cached': True})
+                    continue
+                if last_call is not None:
+                    sleep(max(0.0, interval - (time.monotonic() - last_call)))
+                last_call = time.monotonic()
+                result = lookup(client, vat, api_key, sleep=sleep)
+                result['checked_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+                if result['status'] != 'error':
+                    db.put_gemi_status(con, vat, result)
+                on_result(vat, {**result, 'cached': False})
+        finally:
+            if own_client:
+                client.close()
 
 
 def export_live(results, candidates, directory: Path):

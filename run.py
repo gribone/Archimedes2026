@@ -18,6 +18,36 @@ def default_llm():
     return match.group(1)
 
 
+def supported(python):
+    """True if this interpreter is Python 3.12 or 3.13 (the versions the pinned wheels support)."""
+    try:
+        out = subprocess.run([python, '-c', 'import sys; print(sys.version_info[0], sys.version_info[1])'],
+                             capture_output=True, text=True, timeout=30).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return len(out) == 2 and (3, 12) <= (int(out[0]), int(out[1])) < (3, 14)
+
+
+def create_venv(env):
+    """Create .venv with a supported Python, even when run.py is launched by e.g. Python 3.14."""
+    if (3, 12) <= sys.version_info[:2] < (3, 14):
+        subprocess.check_call([sys.executable, '-m', 'venv', str(env)])
+        return
+    for name in ('python3.12', 'python3.13'):
+        found = shutil.which(name)
+        if found and supported(found):
+            print(f'Python {sys.version.split()[0]} is not supported by the pinned packages; using {found}.', flush=True)
+            subprocess.check_call([found, '-m', 'venv', str(env)])
+            return
+    uv = shutil.which('uv')
+    if uv:  # uv downloads a managed Python 3.12 when none is installed
+        print('Creating .venv with a uv-managed Python 3.12.', flush=True)
+        subprocess.check_call([uv, 'venv', '--python', '3.12', str(env)])
+        return
+    raise SystemExit(f'Python 3.12 or 3.13 is required (found {sys.version.split()[0]}). '
+                     'Install Python 3.12 and run: python3.12 run.py --first-run')
+
+
 def main():
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group()
@@ -26,14 +56,15 @@ def main():
     mode.add_argument('--demo', action='store_true', help='Install only lightweight demo dependencies')
     parser.add_argument('--port', type=int, default=8000)
     args = parser.parse_args()
-    if not (3, 12) <= sys.version_info[:2] < (3, 14):
-        raise SystemExit(f'Python 3.12 or 3.13 is required (found {sys.version.split()[0]}). '
-                         'Install Python 3.12 and run it explicitly, e.g. python3.12 run.py --first-run')
     os.chdir(ROOT)
     env = ROOT / '.venv'
     executable = env / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     if not executable.exists():
-        subprocess.check_call([sys.executable, '-m', 'venv', str(env)])
+        create_venv(env)
+    # The pinned wheels need Python 3.12 or 3.13 *inside the venv*; the launcher itself can be any version.
+    if not supported(str(executable)):
+        raise SystemExit(f'{env} uses an unsupported Python (3.12 or 3.13 is required). '
+                         'Delete the .venv folder and run python run.py again to recreate it.')
     requirements = ROOT / ('requirements.txt' if args.demo else 'requirements-ai.txt')
     marker = env / ('demo-installed' if args.demo else 'ai-installed')
     signature = requirements.read_text() + (ROOT / 'requirements.txt').read_text()

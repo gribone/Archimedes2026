@@ -61,7 +61,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
   - Add API tests in `tests/` for auth and the export endpoints.
 
 ### T2 · Embedded database (SQLite, serverless) for data fetching · P1 · Lane B
-- **Status:** open
+- **Status:** done, uncommitted (Claude Code for Dimitris, 2026-11-07, branch `task/T2-sqlite`). `forcecrm/db.py`: cold import 1.5 s, warm load 0.6 s, 20 MB. `lookalikes.csv`/`assignments.csv`/`enrichment.csv` byte-identical to `main`; `profiles.json` differs only in `llm.seconds`. `validate_exports` PASS; 56 tests. Prospects table pages via `/api/runs/{id}/lookalikes` (job payload 11.1 MB → 0.4 MB). Live ΓΕΜΗ cache moved into SQLite. `users` table created for T1 (schema only).
 - **Context:** every run re-reads three CSVs (24,424 venues, 161,964 activity rows) with pandas, and the UI receives the whole result. "Serverless" here means SQLite: a single file, standard library, no daemon, which is fine for the "one command" rule.
 - **Work:**
   - Create `forcecrm/db.py`. On first start it imports the CSVs into `.cache/forcecrm.sqlite` (gitignored), keyed by the CSVs' SHA-256 (already computed in `report.json`). Re-import only when the hashes change.

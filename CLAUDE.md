@@ -26,7 +26,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
   - Never commit data or outputs: `*.csv`, `*.xlsx`, `outputs/`, `models/` and `.cache/` are gitignored.
 
 ### Environment on this Mac (Apple A18 Pro, 8 GB RAM, macOS 27)
-- **Python:** needs **3.12** (3.13 resolves; 3.11 and 3.14 fail on the pinned wheels, and `run.py` checks this). The system `python3` is 3.14; there is no `python3.12` on PATH. The uv-managed interpreter is `~/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`. ⚠️ **Inside the repo, `uv python find 3.12` returns the teammate branch's `.venv`, which is the wrong environment.** Run it from outside the repo, or use the path above.
+- **Python:** needs **3.12** (3.13 resolves; 3.11 and 3.14 fail on the pinned wheels). `run.py` checks the **venv's** interpreter, not the launcher's: launched with 3.14 it builds `.venv` from `python3.12`/`python3.13` on PATH or a uv-managed 3.12 (task/T2-sqlite, 2026-11-07). The system `python3` is 3.14; there is no `python3.12` on PATH. The uv-managed interpreter is `~/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`. ⚠️ **Inside the repo, `uv python find 3.12` returns the teammate branch's `.venv`, which is the wrong environment.** Run it from outside the repo, or use the path above.
 - **Ollama:** installed via Homebrew. Start it with `ollama serve`, or let `run.py` start it. Pulled models: `ministral-3:3b` (default), plus `qwen3:1.7b` and `gemma3:1b` for the benchmark.
 - **scipy:** 1.15.3's macOS wheel fails to load here (dyld `__thread_bss` error), so scipy 1.18.1 and numpy 2.5.4 are pinned.
 - **Durable one-command setup in the repo** (not done yet; ask the user first, because step 1 deletes the teammate's 1.5 GB uv env, which `uv sync` on that branch can recreate):
@@ -46,7 +46,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
 | Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min here, including 3 LLM titles + descriptions (faster when Ollama keeps the model loaded) |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
-| Tests | `.venv/bin/python -m pytest -q` | 50 pass |
+| Tests | `.venv/bin/python -m pytest -q` | 56 pass |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
 | Benchmarks | `scripts.benchmark embeddings` / `scripts.benchmark llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |

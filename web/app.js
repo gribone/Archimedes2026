@@ -177,8 +177,11 @@ const LIVE_LABELS = {
   not_found: "Δεν βρέθηκε",
   error: "Σφάλμα",
 };
-function liveBadge(vat) {
-  const result = live?.results[vat];
+function liveBadge(vat, row) {
+  // Live results from this session first, then statuses stored in SQLite by earlier checks.
+  const result =
+    live?.results[vat] ||
+    (row?.gemi_status ? { status: row.gemi_status, description: row.gemi_description } : null);
   if (!result) return "";
   const text = result.status === "inactive" && result.description ? result.description : LIVE_LABELS[result.status];
   return ` <span class="live-badge live-${result.status}" title="ΓΕΜΗ · ${escapeHTML(result.checked_at || "")}">● ${escapeHTML(text)}</span>`;
@@ -414,33 +417,61 @@ function filtered() {
         )),
   );
 }
-function renderCandidates() {
-  if (!state) return;
-  const rows = filtered();
-  page = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1));
-  $("filtered-count").textContent = number(rows.length);
+// The table pages through the run stored in SQLite (/api/runs/{id}/lookalikes); filters run server-side.
+let tableTicket = 0,
+  searchTimer = null;
+async function renderCandidates() {
+  if (!state || !jobId) return;
+  const ticket = ++tableTicket;
+  const params = new URLSearchParams({ offset: page * pageSize, limit: pageSize });
+  const profile = $("profile-filter").value,
+    query = $("search").value.trim(),
+    liveFilter = $("live-filter").value;
+  if (profile) params.set("profile", profile);
+  if (query) params.set("q", query);
+  if (liveFilter) params.set("live", liveFilter);
+  let data;
+  try {
+    data = await request(`/api/runs/${encodeURIComponent(jobId)}/lookalikes?${params}`);
+  } catch (err) {
+    if (ticket !== tableTicket) return;
+    $("candidates-body").innerHTML = `<tr><td colspan="5">${escapeHTML(err.message)}</td></tr>`;
+    return;
+  }
+  if (ticket !== tableTicket) return;
+  const lastPage = Math.max(0, Math.ceil(data.total / pageSize) - 1);
+  if (page > lastPage) {
+    page = lastPage;
+    return renderCandidates();
+  }
+  $("filtered-count").textContent = number(data.total);
   $("candidates-body").innerHTML =
-    rows
-      .slice(page * pageSize, (page + 1) * pageSize)
+    data.rows
       .map(
         (c) =>
-          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
+          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat, c)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
       )
       .join("") ||
     '<tr><td colspan="5">Δεν βρέθηκαν επιχειρήσεις για αυτά τα φίλτρα.</td></tr>';
-  $("page-info").textContent = rows.length
-    ? `${number(page * pageSize + 1)}–${number(Math.min((page + 1) * pageSize, rows.length))} από ${number(rows.length)}`
+  $("page-info").textContent = data.total
+    ? `${number(page * pageSize + 1)}–${number(Math.min((page + 1) * pageSize, data.total))} από ${number(data.total)}`
     : "0 αποτελέσματα";
   $("prev-page").disabled = page === 0;
-  $("next-page").disabled = (page + 1) * pageSize >= rows.length;
+  $("next-page").disabled = (page + 1) * pageSize >= data.total;
 }
-["profile-filter", "search"].forEach((id) =>
-  $(id).addEventListener("input", () => {
+$("profile-filter").addEventListener("input", () => {
+  page = 0;
+  renderCandidates();
+  drawMap();
+});
+$("search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
     page = 0;
     renderCandidates();
     drawMap();
-  }),
-);
+  }, 250);
+});
 $("prev-page").addEventListener("click", () => {
   page--;
   renderCandidates();
@@ -602,7 +633,7 @@ request("/api/status")
       percent(s.data.gps_coverage) +
       " με GPS";
     $("model-status").textContent = s.embedding_ready
-      ? "Το embedding model είναι διαθέσιμο. Απαιτείται το Ollama με qwen3:1.7b."
+      ? `Το embedding model είναι διαθέσιμο. Απαιτείται το Ollama με ${s.llm}.`
       : "Για πλήρη ανάλυση: python run.py --setup-models · Το demo λειτουργεί χωρίς μοντέλα.";
   })
   .catch((err) => error(err.message));

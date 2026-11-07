@@ -27,6 +27,8 @@ Archimedes2026/
 
 `.gitignore` excludes `*.csv` and `*.xlsx`, so these files are never committed.
 
+On first start the CSVs are imported into a local SQLite file, `.cache/forcecrm.sqlite` (about 1.5 s, 20 MB, gitignored). It is re-imported automatically whenever a CSV changes. Analysis runs and ΓΕΜΗ statuses are stored there too, so the prospects list pages and filters without sending the whole result to the browser. Nothing to install: SQLite ships with Python. See [docs/ARCHITECTURE.md §2.12](docs/ARCHITECTURE.md).
+
 ### 2. One-command launch
 
 macOS / Linux:
@@ -70,7 +72,7 @@ The interface provides profiles, grounded descriptions, statistical tables, stab
 - **Adjustable similarity weights** (activity / geography / legal form / age). The validated defaults are 65 / 20 / 10 / 5. A custom run shows a warning and re-runs the internal holdout with the default weights, so the accuracy trade-off is visible. Submission exports should use the defaults.
 - **Live ΓΕΜΗ status check (opt-in, online).** Checks whether the top N prospects (1–200) are still active in the ΓΕΜΗ Open Data API. It needs your **own** ΓΕΜΗ `api_key`, entered in the form or set as `GEMI_API_KEY`.
   - It runs server-side and sends **only prospect ΑΦΜ**, never the customer list or revenue.
-  - It is rate-limited (`GEMI_REQUESTS_PER_MINUTE`, default 8), and results are cached for 7 days in `.cache/gemi-status.json`.
+  - It is rate-limited (`GEMI_REQUESTS_PER_MINUTE`, default 8), and results are cached for 7 days in the local SQLite store (`.cache/forcecrm.sqlite`, table `gemi_status`).
   - It writes `live-status.csv` with the source attribution.
   - This is the only feature that contacts an external service. It fetches data, not AI, which the brief allows. It is off unless you start it; everything else works offline.
 
@@ -143,7 +145,7 @@ AI coding assistant disclosure (development only, not part of application infere
 
 ## Troubleshooting
 
-- `Python 3.12 or 3.13 is required`: install Python 3.12 (python.org, `brew install python@3.12`, or `uv python install 3.12`) and run the launcher with it. If an older `.venv` was created with another version, delete `.venv` and relaunch.
+- `Python 3.12 or 3.13 is required`: the launcher itself may be any Python 3; it builds `.venv` with `python3.12`/`python3.13` from PATH, or a uv-managed 3.12 if `uv` is installed. If neither exists, install Python 3.12 (python.org, `brew install python@3.12`, or `uv python install 3.12`). If an older `.venv` was created with another version, delete `.venv` and relaunch.
 - `python` opens the Microsoft Store: install Python 3.12 and enable PATH, or use `py -3.12`.
 - `FileNotFoundError` for a `vwHack*.csv` file: copy the three CSVs into the repository root (step 1).
 - Missing embeddings: `python run.py --setup-models`; model downloads are explicit, never automatic during analysis.
