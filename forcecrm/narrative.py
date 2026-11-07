@@ -96,9 +96,6 @@ def narrate(profile, root, model=DEFAULT_LLM, demo=False):
             raise ValueError(f'Local Ollama model {model} not found. Run: ollama pull {model}')
         identity = available[model]['digest']
         key = hashlib.sha256((identity + prompt + 'seed42-temp0-full-paragraph-v3').encode()).hexdigest()
-        cache = root / '.cache' / f'narrative-{key}.json'
-        if cache.exists():
-            return json.loads(cache.read_text('utf-8'))
         start = time.perf_counter()
         payload = {'model': model, 'prompt': prompt, 'stream': False, 'format': schema, 'keep_alive': '5m',
             'options': {'temperature': 0, 'seed': 42, 'num_ctx': 2048, 'num_predict': 900, 'top_k': 1, 'num_thread': 4}}
@@ -138,6 +135,4 @@ def narrate(profile, root, model=DEFAULT_LLM, demo=False):
                   'load_seconds': raw.get('load_duration', 0) / 1e9,
                   'prompt_tokens': raw.get('prompt_eval_count'), 'prompt_seconds': raw.get('prompt_eval_duration', 0) / 1e9,
                   'raw_response': raw['response']}}
-        cache.parent.mkdir(exist_ok=True)
-        cache.write_text(json.dumps(result, ensure_ascii=False, indent=2), 'utf-8')
         return result
