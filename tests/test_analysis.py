@@ -165,3 +165,30 @@ def test_feature_selection_avoids_restating_the_same_place():
     names = [f['feature'] for f in picked]
     assert 'municipality_name:ΧΑΝΙΩΝ / ΧΑΝΙΩΝ' not in names and 'prefecture_name:ΡΟΔΟΥ' not in names
     assert names[-1] == 'legal_type:ΙΚΕ' and len(names) == 4
+
+
+def test_portfolio_traits_and_activity_mix_count_vats_not_venues():
+    from forcecrm.evidence import portfolio_traits, activity_mix
+    vats = [f'{i:09d}' for i in range(200)]
+    c = pd.DataFrame({'vat': vats + ['000000000'] * 5})  # five extra branches of one customer
+    codes = [['56300007'] if i < 40 else ['56110100'] for i in range(200)] + [['56300007']] * 5
+    traits = [{f'primary_activity:{x[0]}', 'prefecture_name:A'} for x in codes]
+    d = pd.DataFrame({'activity_id': ['56300007', '56110100'], 'description': ['ΚΑΦΕΤΕΡΙΑ', 'ΕΣΤΙΑΤΟΡΙΟ']})
+    customers = set(vats[:30]) | set(vats[100:110])  # 30 of 40 cafes, 10 of 160 restaurants
+    rows, tests = portfolio_traits(c, traits, customers, d)
+    assert [r['feature'] for r in rows] == ['primary_activity:56300007']  # geography is excluded
+    assert rows[0]['count'] == 30 and rows[0]['total'] == 40
+    mask = c.vat.isin(customers).to_numpy()
+    mix = activity_mix(c, codes, [mask], d)[0]
+    assert mix[0]['activity_id'] == '56300007' and mix[0]['count'] == 30 and mix[0]['total'] == 40
+    assert abs(mix[0]['universe_rate'] - 40 / 200) < 1e-9
+
+
+def test_activity_sentence_precedes_quality_sentence():
+    from forcecrm.narrative import narrate
+    p = {'customer_count': 10, 'venue_count': 10, 'revenue_share': .2, 'significant_features': [],
+         'stability': .9, 'stability_detail': {'mean': .9, 'p10': .7}, 'confidence_score': .55, 'quality': 'strong',
+         'activity_mix': [{'label': 'ΥΠΗΡΕΣΙΕΣ ΠΟΥ ΠΑΡΕΧΟΝΤΑΙ ΑΠΟ ΚΑΦΕΤΕΡΙΑ', 'profile_rate': .31, 'universe_rate': .126}]}
+    claims = narrate(p, None, demo=True)['claims']
+    assert claims[-2]['fact_ids'] == ['activity_mix'] and '«ΚΑΦΕΤΕΡΙΑ» 31%' in claims[-2]['sentence']
+    assert claims[-1]['fact_ids'] == ['quality']

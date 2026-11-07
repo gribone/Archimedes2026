@@ -87,6 +87,8 @@ The same step builds a **trait set** per venue for the statistics: legal form, p
 - A **global Benjamini–Hochberg** correction is applied across all tests.
 - A trait is reported only if q ≤ 0.05, it has ≥ 5 supporting ΑΦΜ, and lift ≥ 1.2. This stops rare traits passing by chance.
 - These are exploratory statistics: the same data both forms the clusters and is tested.
+- **Portfolio-wide business traits** (`portfolio_traits`): the same test, run on all customers against the universe, restricted to activity, legal form, incorporation year, branch flag and OSM amenity. This surfaces business traits that customers share *across* regions, which per-profile tests cannot see. On the supplied portfolio, two pass: ΙΚΕ (110/300, 2.4×) and school canteens (19/300, 2.4×, q = 0.02). They are stored in `report.json` and shown above the profiles in the UI.
+- **Activity mix per profile** (`activity_mix`): the profile's three most common primary activities, with ΑΦΜ shares against the market. This is descriptive, not a test. It goes into `profiles.json`, the UI and the description.
 
 ### 2.6 Stability (`clustering.stability`, A5)
 - 20 bootstrap resamples of the customer ΑΦΜ. Each resample is re-clustered with the same k, and the profiles are matched to the originals (Hungarian algorithm).
@@ -103,7 +105,8 @@ The same step builds a **trait set** per venue for the statistics: legal form, p
    - known misleading words and grammar slips are rejected
    - duplicate sentences are rejected
 4. A sentence that fails twice keeps its template wording. Each claim records `author` (`local LLM` or `computed template`) and its source field.
-5. A **computed** final sentence states profile quality, bootstrap stability (mean and p10) and fit confidence. It says explicitly that this is not a purchase probability.
+5. A **computed** sentence states the profile's most common primary activities against the market.
+6. A **computed** final sentence states profile quality, bootstrap stability (mean and p10) and fit confidence. It says explicitly that this is not a purchase probability.
 
 The descriptions carry an AI label in the UI and in `profiles.json`. Profile titles are built deterministically from the top traits. **The LLM never influences scores, profiles or rankings.**
 
@@ -130,10 +133,10 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 - **Justification:** the profile's significant traits that the venue shares, plus its similarity and concentration figures. Venues outside the acceptance radius are prefixed "Διερευνητική πρόταση".
 
 ### 2.9 Outputs and internal evaluation
-- `profiles.json`: title, AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, plus LLM parameters.
+- `profiles.json`: title, AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, `activity_mix`, plus LLM parameters.
 - `assignments.csv` (`company_id, profile_id, score`) and `lookalikes.csv` (`profile_id, company_id, rank, score, rationale`).
-- `report.json`: data audit, chosen k and diagnostics, input SHA-256 hashes, timings and the internal holdout test.
-- **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%.
+- `report.json`: data audit, chosen k and diagnostics, `portfolio_traits`, input SHA-256 hashes, timings and the internal holdout test.
+- **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.3% / 51.3%.
 
 ### 2.10 Web app (`server.py`, A8)
 - FastAPI bound to `127.0.0.1`, with a middleware that rejects cross-site requests.
@@ -141,7 +144,27 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 - Each job writes to `outputs/<job_id>/`. The files can be downloaded through `/api/jobs/{id}/export/{file}`, and the latest completed run is restored on startup.
 - A **demo mode** uses a synthetic portfolio, lexical TF-IDF instead of E5, and no LLM. It is clearly labelled and not valid for submission.
 
-## 3. Is it deterministic?
+## 3. Why the profiles are mostly geographic
+
+On the supplied portfolio the three profiles are effectively regions: tourist islands, Kassandra plus Thessaloniki, and Attica. This is a property of the data, not a weighting bug:
+
+- Every business is food service (ΚΑΔ 56), so activity embeddings are nearly identical. The mean cosine similarity between two random venues is **0.91** for activity, against **0.33** for geography. Activity carries 65% of the weight but only **8%** of the separation between profile centres; geography gives **78%**.
+- The customers' activity mix is close to the market's. For example, cafeterias are 13.7% of customers vs 12.6% of all businesses, and full-service restaurants 13.7% vs 10.9%.
+
+`scripts/experiment_representation.py` tests the obvious fixes, using the 5-split holdout with the tourism signal:
+
+| Variant | Recall@500 | Recall@2000 | k | Activity / geography share of separation |
+|---|---:|---:|---:|---|
+| **Shipped** | **21.3%** | **51.3%** | 3 | 8% / 78% |
+| Activity embeddings centred (market mean removed) | 18.0% | 44.7% | 2 | 81% / 8% |
+| Finer geography (≈35 km grid, σ 25 km, municipality one-hot) | 18.7% | 51.3% | 2 | 14% / 25% (legal form 60%) |
+| Both | 17.0% | 40.3% | 2 | 83% / 6% |
+
+A `--sweep` over partial centring (α = 0.5 / 0.8) and lower activity weights (0.45 / 0.30) found no setting better on both cutoffs. The best Recall@2000 was 54.0%, with α = 0.5, but it had 19.3% at 500 and merged the profiles to k = 2. With 60 held-out customers per split, differences of 2–3 points are within noise. In every variant, the traits that pass the statistical tests were still mostly geographic.
+
+**Decision:** keep the shipped representation and report business traits explicitly instead: portfolio-wide traits, the activity mix per profile, and the activity sentence in each description. A salesperson sees that this customer base is defined by *where* businesses are, and also that ΙΚΕ companies and school canteens are over-represented everywhere.
+
+## 4. Is it deterministic?
 
 **For recommendations, yes.** The same Excel, data files, model files and software versions give the **same profiles, the same assignments and the same ranked lookalikes**, down to the byte.
 

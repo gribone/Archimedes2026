@@ -8,43 +8,99 @@ Repo: github.com/gribone/Archimedes2026. Original data lives outside the repo in
 ### Branches (GitHub default = `main`)
 | Branch | What it is |
 |---|---|
-| `main` | **The submission.** = `feature/forcecrm-local-ai` + setup/docs fix commit `95878d7`. FastAPI + plain JS UI, `forcecrm/` package. |
+| `main` | **The submission.** FastAPI + plain-JS UI, `forcecrm/` package. = `feature/forcecrm-local-ai` + later commits: setup/docs fix `95878d7`, Greek narration rework `28f8f1b`, PDF card rebuild `e9218ef`, architecture doc `f027c1b`, then portfolio traits / activity mix. `git log --oneline` is authoritative. |
 | `feature/forcecrm-local-ai` | Original local-ai solution (`661cfc2`), without the fixes. Keep, don't merge. |
 | `feat/icp-engine-and-ui` | Teammate's alternative (Streamlit, `src/`, uv). Weaker; **not to be merged**. Teammate still pushes UI changes to it. |
 | `feat/stage1-ingest-baseline` | First commit of the ICP branch only (ingest + baseline). History only. |
 The user wants exactly these 4 branches on GitHub; delete any temporary branches after merging.
 
-### Running `main`
-- Needs **Python 3.12** (3.13 resolves; 3.11/3.14 fail on pinned wheels; `run.py` checks this). This Mac's `python3` is 3.14 → use `python3.12` or `$(uv python find 3.12)`.
-- Copy the 3 CSVs (`../Data/data/vwHack*.csv`) into the **repo root** next to `run.py`; the Excel is uploaded in the browser (or passed to the CLI). `*.csv`/`*.xlsx` are gitignored.
-- `python3.12 run.py --first-run` → creates `.venv`, installs deps, downloads `intfloat/multilingual-e5-small` to `models/e5-small`, `ollama pull ministral-3:3b`, serves http://127.0.0.1:8000. Verified on a clean clone on this Mac.
-- CLI: `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real`; holdout audit: `.venv/bin/python -m scripts.audit_ranking`; tests: `.venv/bin/python -m pytest -q` (18 pass).
-- Ollama installed via Homebrew (`ollama serve`); model `ministral-3:3b` pulled. Mac has only 8 GB RAM.
-- scipy 1.15.3's macOS wheel fails to load on this macOS (dyld `__thread_bss` error) → pinned scipy 1.18.1 / numpy 2.5.4.
+### Start here
+- **How the code works:** `docs/ARCHITECTURE.md`. It covers the pipeline diagram, the feature weights, the ranking formula, why profiles are geographic (§3) and determinism (§4).
+- **Other docs:** user-facing run instructions and the methodology are in `README.md`. Model choice and measurements are in `docs/MODEL_DATA_CARD.md` and the PDF `docs/ForceCRM-Model-Data-Card.pdf`. Requirement-by-requirement verification is in `docs/COMPETITION_AUDIT.md`, and the AI Act self-assessment in `docs/RESPONSIBLE_AI.md`.
+- **Hard rules:**
+  - The LLM never affects profiles, scores or ranking; it only writes description text.
+  - Never produce anything resembling a credit or solvency score (AI Act trap, see below).
+  - Never commit data or outputs: `*.csv`, `*.xlsx`, `outputs/`, `models/` and `.cache/` are gitignored.
 
-### Measured results (reproduced, not just claimed)
+### Environment on this Mac (Apple A18 Pro, 8 GB RAM, macOS 27)
+- **Python:** needs **3.12** (3.13 resolves; 3.11 and 3.14 fail on the pinned wheels, and `run.py` checks this). The system `python3` is 3.14; there is no `python3.12` on PATH. The uv-managed interpreter is `~/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12`. ⚠️ **Inside the repo, `uv python find 3.12` returns the teammate branch's `.venv`, which is the wrong environment.** Run it from outside the repo, or use the path above.
+- **Ollama:** installed via Homebrew. Start it with `ollama serve`, or let `run.py` start it. Pulled models: `ministral-3:3b` (default), plus `qwen3:1.7b` and `gemma3:1b` for the benchmark.
+- **scipy:** 1.15.3's macOS wheel fails to load here (dyld `__thread_bss` error), so scipy 1.18.1 and numpy 2.5.4 are pinned.
+- **Durable one-command setup in the repo** (not done yet; ask the user first, because step 1 deletes the teammate's 1.5 GB uv env, which `uv sync` on that branch can recreate):
+  1. `rm -rf .venv`. `run.py` hardcodes `.venv`, and the existing one is the ICP branch's.
+  2. `cp ../Data/data/vwHack*.csv .`
+  3. `~/.local/share/uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12 run.py --first-run`. This creates `.venv`, installs `requirements-ai.txt`, downloads E5-small to `models/e5-small`, pulls `ministral-3:3b` and serves http://127.0.0.1:8000.
+- **Working environment used on 2026-11-07 (temporary, may disappear on reboot):** a clean clone with venv, CSVs and models at `/private/tmp/claude-501/-Users-gribgen-workspace-FORCECRM/26b027b9-790e-4caa-874f-51f86226274c/scratchpad/clean`.
+  - Contents: `.venv` (py3.12, `requirements-ai.txt` + reportlab), `models/e5-small`, `models/e5-base`, `models/multilingual-minilm`, and the three CSVs.
+  - To run the repo's code against it, set `C=<that path>`, then:
+    `PYTHONPATH=$PWD HF_HUB_OFFLINE=1 $C/.venv/bin/python -X utf8 -m scripts.analyze --data $C --portfolio ../Data/ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real`.
+  - The same pattern works for the other scripts and for `-m pytest -q`.
+  - If the folder is gone, use the durable setup above.
+
+### Commands (inside a provisioned `.venv`; prefix `PYTHONPATH=$PWD` and `--data <dir with CSVs>` when using another env)
+| Task | Command | Notes |
+|---|---|---|
+| Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
+| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~2.5 min here, including 3 LLM descriptions |
+| Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
+| Tests | `.venv/bin/python -m pytest -q` | 20 pass |
+| 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
+| Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
+| Benchmarks | `scripts.benchmark embeddings` / `scripts.benchmark llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |
+| PDF model card | `.venv/bin/python -m scripts.build_card` | Needs `pip install reportlab`, `outputs/real`, `outputs/embedding-comparison.json` and `outputs/llm-comparison.json` |
+
+### Measured results (reproduced on this Mac)
 | | Recall@500 | Recall@2000 |
 |---|---:|---:|
-| `main`, mean of 5 splits | 18.0% | 50.3% |
-| `main`, default seeded split | 15/60 (25.0%) | 33/60 (55.0%) |
+| `main`, mean of 5 splits, with tourism signal (= shipped pipeline) | 21.3% | 51.3% |
+| `main`, mean of 5 splits, without tourism (`audit_ranking` default, `docs/ranking-audit.json`) | 18.0% | 50.3% |
+| `main`, default seeded split (seed 2026, in `report.json`) | 15/60 (25.0%) | 33/60 (55.0%) |
 | `feat/icp-engine-and-ui`, 5-fold | 14.0% | 29.7% |
 | Primary-ΚΑΔ baseline | ~1.3–1.7% | ~7–8% |
-`main` finds 3 profiles (tourist municipalities incl. Heraklion/Cyclades; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ), ~40–55 s per Greek description on this Mac (full run ~2.5 min).
-LLM benchmark on this Mac (share of sentences passing grounding checks / s per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. Ministral kept as default for European provenance (team decision; switching is a one-line change of `DEFAULT_LLM`).
+
+- **Profiles:** `main` finds 3 (tourist islands: Cyclades, Heraklion, Chania, Dodecanese; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ). Stability is 93% / 88% / 91%.
+- **Portfolio-wide business traits:** ΙΚΕ 110/300 (2.4×) and school canteens 19/300 (2.4×, q = 0.02).
+- **LLM benchmark** (share of sentences passing the grounding checks / seconds per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. Ministral stays the default for its European provenance. That is a team decision; switching is a one-line change of `DEFAULT_LLM` in `forcecrm/narrative.py`.
+- **Embeddings** (family hit@5): E5-small 93.2%, E5-base 93.2%, MiniLM 89.0%. These reproduce the original author's numbers.
+- **Determinism:** the same inputs give byte-identical `lookalikes.csv` and `assignments.csv`, verified across separate runs.
+
+### Working conventions for agents
+- **Ranking or features:** after any change to `features.py`, `clustering.py`, `affinity.py` or `pipeline.rank_candidates`, run `audit_ranking --with-tourism`. Compare against 21.3% / 51.3%; with 60 held-out VATs per split, ±2–3 points is noise. Check that `lookalikes.csv` is unchanged when you didn't intend a ranking change.
+- **Any change:** run `pytest`, then a full `scripts.analyze` and `scripts.validate_exports` (must `PASS`).
+- **Greek text:** wording rules live in `narrative.py`: `BANNED`, `BAD_PATTERNS`, `check_sentence`, few-shot `EXAMPLES`.
+  - Every number in a sentence must come from its source fact.
+  - Computed sentences (activity mix, quality/stability/confidence) are templates with `author: computed template`.
+  - `validate_exports` requires `description == ' '.join(claims[].sentence)`.
+- **When numbers change, update all of these together:**
+  - `README.md` (Model comparison and Methodology)
+  - `docs/MODEL_DATA_CARD.md`
+  - the PDF (rebuild with `scripts.build_card`)
+  - `docs/COMPETITION_AUDIT.md`
+  - `docs/ARCHITECTURE.md`
+  - this file
+- **Commits:** commit or push only when the user asks; they usually want `main` pushed. End commit messages with the `Co-Authored-By` line from the system prompt. Keep the AI-tools declaration current: README "AI coding assistant disclosure", the Markdown card, and the `build_card.py` text.
+- **Long runs:** the Mac has 8 GB RAM, so don't run two LLM-heavy jobs at once.
 
 ### Open problems on `main` (priority order)
-1. ~~PDF model card stale~~ — fixed 2026-11-07: `build_card.py` supports macOS fonts and reads hardware from the benchmark files; card rebuilt from fresh runs on this Mac (`outputs/real`, `outputs/embedding-comparison.json`, `outputs/llm-comparison.json`, all gitignored). Rebuild needs `pip install reportlab` plus `models/e5-base`, `models/multilingual-minilm`, `ollama pull qwen3:1.7b gemma3:1b` for the benchmarks.
-2. ~~Greek descriptions~~ — fixed 2026-11-07 in `28f8f1b`: `narrative.py` now renders each fact as a Greek template, Ministral rewrites one sentence at a time (chat + few-shot), deterministic checks (numbers, %, names, banned wording/grammar patterns) reject bad rewrites, failures fall back to the template. Typically 3–5 of 6 sentences are LLM-written; ~30–50 s/profile on this Mac. Still no human fluency rating; a stronger Greek LLM (Krikri-8B, EuroLLM-9B) remains an option.
-3. ~~Stability/confidence not in text~~ — fixed: every description ends with a computed quality/stability(mean+p10)/confidence sentence.
-4. Profiles are almost purely geographic; ΚΑΔ/activity semantics barely appear (A1 risk for judging).
-5. Untested: browser flow (upload → profiles → export), Windows/Linux clean install, human fluency ratings.
-6. ~~AI-tools declaration~~ — fixed: README and Markdown model card list Claude Code too (PDF card still stale, see 1).
-7. Known limits the README admits: uncalibrated confidence; exploratory stats (same data clusters and tests). Docs timings are now from this Mac (Apple A18 Pro, 8 GiB).
+1. **Browser flow untested:** upload → profiles (including the new portfolio-traits card and activity-mix table) → prospects → export. Only `node --check web/app.js` and the API-level pipeline have been verified.
+2. **Greek fluency** has no native-speaker rating yet (the benchmark JSON has null rating fields). Activity names appear in ΓΕΜΗ capitals inside «».
+3. **Clean install untested on Windows/Linux.** The durable repo setup on this Mac hasn't been done (see Environment).
+4. **LLM default:** Ministral passes the checks least often (61%) and is the slowest. Qwen3 or Gemma are faster and pass more, but they aren't European. It's the user's call.
+5. **Known limits the docs admit:** confidence is uncalibrated; the statistics are exploratory (the same data forms and tests the clusters); profiles on this portfolio are geographic by nature (`docs/ARCHITECTURE.md` §3).
+6. **Cosmetic:** the PDF card's page header says "TECHNICAL BRIEF" (the original author's label).
+
+Done 2026-11-07:
+- Greek narration rework, with quality/stability/confidence stated in the text
+- AI-tools declaration includes Claude Code
+- PDF card rebuilt on macOS from fresh benchmarks
+- Architecture doc with a determinism analysis
+- Geographic-profile investigation, plus portfolio-wide traits and a per-profile activity mix
 
 ### Local leftovers
-- `data/` in the repo = symlinks to `../Data` created for the ICP branch (untracked on `main`; safe to delete).
-- `.venv/` in the repo is the ICP branch's uv env (1.5 GB); `main`'s `run.py` would reuse the `.venv` path, so delete it before running `main` here.
-- Two git worktrees (`local-ai`, `stage1`) are registered in a temporary scratchpad from the review session; once that folder is gone, run `git worktree prune`.
+- **`data/`** in the repo: symlinks to `../Data` created for the ICP branch (untracked; safe to delete).
+- **`output/`** (singular) in the repo: old exports from the ICP branch (untracked; not `main`'s `outputs/`).
+- **`.venv/`** in the repo: the ICP branch's uv env (1.5 GB). See the durable setup above before replacing it.
+- **Worktrees:** two git worktrees (`local-ai`, `stage1`) are registered in a temporary scratchpad from the review session. Once that folder is gone, run `git worktree prune`.
 
 ## Goal
 "Who will be the next customer?" — a localhost web app (any stack) for Greek food-service businesses (ΚΑΔ 56).

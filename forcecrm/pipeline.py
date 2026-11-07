@@ -12,7 +12,7 @@ from threadpoolctl import threadpool_limits
 
 from .clustering import discover, stability
 from .data import FILES, load_universe
-from .evidence import significant_features
+from .evidence import significant_features, portfolio_traits, activity_mix
 from .features import build_features
 from .narrative import narrate, profile_title, DEFAULT_LLM
 from .affinity import market_affinity
@@ -132,6 +132,8 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     progress('Measuring bootstrap stability and statistical evidence')
     stable, ari = stability(X[indices], fit['weights'], fit['vats'], centers, labels, repetitions=bootstrap)
     evidence, tests = significant_features(c, traits, masks, d)
+    mixes = activity_mix(c, primary, masks, d)
+    shared_traits, shared_tests = portfolio_traits(c, traits, set(portfolio.vat), d)
     revenue_map = portfolio.set_index('vat').revenue
     branches = c[c.vat.isin(portfolio.vat)].vat.value_counts()
     profiles = []
@@ -146,7 +148,8 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
                    'revenue_share': float(allocated_revenue / portfolio.revenue.sum()),
                    'stability': stable[j]['mean'], 'stability_detail': stable[j], 'confidence_score': confidence,
                    'quality': 'strong' if stable[j]['mean'] >= .75 and len(evidence[j]) >= 2 else 'limited',
-                   'significant_features': evidence[j], 'acceptance_cosine_distance': float(fit['radii'][j])}
+                   'significant_features': evidence[j], 'activity_mix': mixes[j],
+                   'acceptance_cosine_distance': float(fit['radii'][j])}
         if evidence[j]:
             profile['title'] = profile_title(profile)
         progress(f'Writing grounded Greek description {j + 1}/{len(centers)}')
@@ -173,6 +176,7 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
               'profile_count': len(profiles), 'candidate_count': len(lookalikes),
               'rejected_venues': int((~fit['accepted']).sum()), 'feature_configuration': feature_meta,
               'cluster_selection': fit['diagnostics'], 'bootstrap_ari': ari, 'hypotheses_tested': tests,
+              'portfolio_traits': shared_traits, 'portfolio_traits_tested': shared_tests,
               'statistics_note': 'Exploratory Fisher tests after data-driven clustering; global BH q≤0.05, ≥5 VAT support, lift≥1.2. Not independent confirmatory inference.',
               'confidence_note': 'Similarity and fit confidence are not probabilities of conversion or creditworthiness.',
               'rank_note': 'Global rank, one representative venue per VAT; profile_id indicates nearest profile, including explicitly marked exploratory candidates outside threshold.',

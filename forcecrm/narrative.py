@@ -238,8 +238,27 @@ def validate_prose(draft, facts):
     return ' '.join(c['sentence'] for c in claims), claims
 
 
+def short_activity(label):
+    """'ΥΠΗΡΕΣΙΕΣ ΠΟΥ ΠΑΡΕΧΟΝΤΑΙ ΑΠΟ ΚΑΦΕΤΕΡΙΑ' -> 'ΚΑΦΕΤΕΡΙΑ'; 'ΥΠΗΡΕΣΙΕΣ ΠΑΡΟΧΗΣ ΓΕΥΜΑΤΩΝ…' -> 'ΠΑΡΟΧΗ ΓΕΥΜΑΤΩΝ…'."""
+    return re.sub(r'^ΥΠΗΡΕΣΙΕΣ ΠΑΡΟΧΗΣ ', 'ΠΑΡΟΧΗ ', re.sub(r'^ΥΠΗΡΕΣΙΕΣ ΠΟΥ ΠΑΡΕΧΟΝΤΑΙ ΑΠΟ ', '', label))
+
+
+def activity_claim(profile):
+    """Computed sentence: the profile's most common primary activities against the whole market."""
+    mix = profile.get('activity_mix')
+    if not mix:
+        return None
+    shares = [f'«{short_activity(row["label"])}» {row["profile_rate"] * 100:.0f}%' for row in mix]
+    market = [f'{row["universe_rate"] * 100:.0f}%' for row in mix]
+    join = lambda items: items[0] if len(items) == 1 else ', '.join(items[:-1]) + ' και ' + items[-1]
+    sentence = (f'Συχνότερες κύριες δραστηριότητες των πελατών του προφίλ: {join(shares)} '
+                f'(στο σύνολο της εστίασης: {join(market)}' + (' αντίστοιχα).' if len(mix) > 1 else ').'))
+    return {'fact_ids': ['activity_mix'], 'source': ['activity_mix'], 'sentence': sentence,
+            'author': 'computed template'}
+
+
 def _finish(profile, claims, **fields):
-    claims = claims + [quality_claim(profile)]
+    claims = claims + [c for c in (activity_claim(profile), quality_claim(profile)) if c]
     return dict(fields, description=' '.join(c['sentence'] for c in claims), claims=claims)
 
 

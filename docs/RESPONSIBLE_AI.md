@@ -12,7 +12,7 @@ Sales representatives, the uploading company, and businesses listed as prospecti
 
 ## What can the end user inspect?
 
-Each profile exposes counts, revenue share, measured traits, Fisher p-values, globally adjusted q-values, lift, membership stability, fit confidence, and acceptance distance. Every displayed narrative sentence maps to a fact identifier and records whether the local LLM or a verified template wrote it. AI text is explicitly labeled, and the description itself states profile quality, stability and fit confidence. Demo text is labeled as a deterministic template. Candidate justifications identify matching supported traits when available and otherwise state the model's feature basis. Exploratory candidates outside the acceptance radius are identified, not disguised as confident matches.
+Each profile exposes counts, revenue share, its most common activities against the market, measured traits, Fisher p-values, globally adjusted q-values, lift, membership stability, fit confidence, and acceptance distance. Every displayed narrative sentence maps to a fact identifier and records whether the local LLM or a verified template wrote it. AI text is explicitly labeled, and the description itself states profile quality, stability and fit confidence. Demo text is labeled as a deterministic template. Candidate justifications identify matching supported traits when available and otherwise state the model's feature basis. Exploratory candidates outside the acceptance radius are identified, not disguised as confident matches.
 
 ## Where can it fail, and how is this detected?
 
@@ -24,7 +24,7 @@ Each profile exposes counts, revenue share, measured traits, Fisher p-values, gl
 | Unstable cohorts | Per-profile bootstrap Jaccard and global ARI; limited-quality label |
 | Hallucinated text | One sentence per fact; numbers, percentages and names checked against the source fact; misleading wording rejected; failing sentences fall back to verified templates |
 | Poor retrieval | Internal holdout against primary-NACE baseline; real hidden-set performance cannot be inferred from the demo |
-| Geographic/legal-form bias | Visible feature weights and distributions; similarity is never presented as credit or conversion probability |
+| Geographic/legal-form bias | Visible feature weights and distributions; profiles that are mainly geographic are documented as such, and business traits shared across regions are shown separately (portfolio traits, activity mix); similarity is never presented as credit or conversion probability |
 | Broken/absent local models | Explicit setup errors; no silent cloud call or demo substitution |
 
 ## Regulatory scope and literacy

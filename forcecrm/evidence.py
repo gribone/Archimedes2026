@@ -57,3 +57,44 @@ def significant_features(companies, traits, member_masks, descriptions):
     for rows in output:
         rows.sort(key=lambda row: (row['q_value'], -row['lift']))
     return output, len(tests)
+
+
+BUSINESS_KINDS = ('primary_activity', 'legal_type', 'incorporation_year', 'is_branch', 'osm_amenity')
+
+
+def portfolio_traits(companies, traits, customer_vats, descriptions):
+    """Non-geographic traits over-represented in the whole portfolio versus the universe.
+
+    Profiles in this data split mostly by place, so business traits shared by customers across
+    regions (e.g. a legal form or an activity such as school canteens) would otherwise stay hidden.
+    Uses the same VAT-level Fisher test, BH correction and thresholds as the per-profile evidence.
+    """
+    business = [{t for t in values if t.partition(':')[0] in BUSINESS_KINDS} for values in traits]
+    rows, tests = significant_features(companies, business, [companies.vat.isin(customer_vats).to_numpy()], descriptions)
+    return rows[0], tests
+
+
+def activity_mix(companies, primary_codes, member_masks, descriptions, top=3):
+    """Descriptive share of each profile's customers (VATs) per primary activity, versus the universe."""
+    names = dict(zip(descriptions.activity_id, descriptions.description))
+    codes_by_vat = defaultdict(set)
+    for vat, codes in zip(companies.vat, primary_codes):
+        codes_by_vat[vat].update(codes)
+    universe = defaultdict(int)
+    for codes in codes_by_vat.values():
+        for code in codes:
+            universe[code] += 1
+    total_vats = len(codes_by_vat)
+    result = []
+    for mask in member_masks:
+        members = set(companies.loc[mask, 'vat'])
+        counts = defaultdict(int)
+        for vat in members:
+            for code in codes_by_vat[vat]:
+                counts[code] += 1
+        ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:top]
+        result.append([{'activity_id': code, 'label': names.get(code, code), 'count': n, 'total': len(members),
+                        'profile_rate': n / max(1, len(members)), 'universe_rate': universe[code] / total_vats,
+                        'lift': (n / max(1, len(members))) / (universe[code] / total_vats)}
+                       for code, n in ranked])
+    return result
