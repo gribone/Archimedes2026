@@ -266,11 +266,12 @@ function drawMap() {
   const w = canvas.width,
     h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#fafcf8";
+  const dark = document.documentElement.dataset.theme === "dark";
+  ctx.fillStyle = dark ? "#1d2926" : "#fafcf8";
   ctx.fillRect(0, 0, w, h);
   ctx.font = "12px Segoe UI";
-  ctx.strokeStyle = "#e4eadd";
-  ctx.fillStyle = "#8c9a85";
+  ctx.strokeStyle = dark ? "#394a42" : "#e4eadd";
+  ctx.fillStyle = dark ? "#bccbc1" : "#8c9a85";
   for (let lon = 19; lon <= 29; lon++) {
     const x = 45 + ((lon - 19) / 10) * (w - 80);
     ctx.beginPath();
@@ -349,3 +350,5 @@ request("/api/latest")
     }
   })
   .catch(() => {});
+
+document.addEventListener("themechange", drawMap);
