@@ -1,0 +1,14 @@
+{
+  "osm_source": "https://download.geofabrik.de/europe/greece-latest.osm.pbf",
+  "osm_timestamp": "2026-11-05T21:23:02Z",
+  "osm_named_nodes": 29348,
+  "census": "https://www.statistics.gr/documents/20181/17286366/mon_plith_2021.xlsx/7adf2ca4-0baf-7b19-2860-1e7caea81e7f",
+  "hotels": "https://www.statistics.gr/el/statistics/-/publication/STO12/2024",
+  "hotel_table": "15 (document 581118)",
+  "municipalities": 211,
+  "source_sha256": {
+    "greece.osm.pbf": "5cba57b29a8e82f1dffc0bf0fea3403401c4013000ca7359fd99e23e51c4684d",
+    "tourism.xls": "b042902db74e6a03d13ba9f68463baad9a24a56a37d9597021848acb0acac2e1",
+    "census.xlsx": "149f9e52c6db9c279de56211de323bf452e1427f8063a7cb1a0b06bf34deb019"
+  }
+}

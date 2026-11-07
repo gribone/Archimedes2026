@@ -21,8 +21,9 @@ def read(path):
 
 
 def build():
-    profiles = read('real/profiles.json')
-    report = read('real/report.json')
+    run = 'enriched' if (OUT / 'enriched/report.json').is_file() else 'real'
+    profiles = read(f'{run}/profiles.json')
+    report = read(f'{run}/report.json')
     embedding = read('embedding-comparison.json')['results']
     language = read('llm-comparison.json')['results']
     for path, name in [('segoeui.ttf', 'Card'), ('segoeuib.ttf', 'CardBold')]:
@@ -66,7 +67,7 @@ def build():
     add('Seed 2026 held out all venues of 60 customers before fitting on the other 240. The baseline ranks primary-code frequencies in the training portfolio. The organizer retains its separate hidden evaluation. A single development split gives a limited estimate of future sales performance.')
     add('Grounding, oversight and data rights', 'h')
     add('Fisher tests compare trait prevalence at VAT level. Global Benjamini-Hochberg correction, at least five supporting VATs and lift of at least 1.2 limit chance findings. Clustering on the same data makes these associations exploratory. Missing GPS, self-declared activities and multiple branches can distort similarity.')
-    add('Source attribution: GEMI Open Data. Geocoding powered by OpenStreetMap contributors (ODbL). The supplied extract is restricted to competition use. The system supports B2B sales research. Credit, solvency and individual eligibility decisions fall outside its scope.')
+    add('GEMI competition data. Geocoding and venue nodes © OpenStreetMap contributors (ODbL), via Geofabrik. ForceCRM divided ELSTAT 2024 hotel nights by 2021 census residents. ELSTAT bears no responsibility for this transformation. Sales research only.')
     flow.append(PageBreak())
     add('Model selection and cost', 'title')
     add('Measurements on the local Intel Core i3-1215U CPU with 7.7 GiB installed RAM', 'sub')

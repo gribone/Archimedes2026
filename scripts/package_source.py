@@ -4,7 +4,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 with zipfile.ZipFile(ROOT / 'forcecrm-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-    for folder in ['forcecrm', 'scripts', 'web', 'tests', 'docs', 'notebooks']:
+    for folder in ['forcecrm', 'scripts', 'web', 'tests', 'docs', 'notebooks', 'open_data']:
         for path in (ROOT / folder).rglob('*'):
             if path.is_file() and '__pycache__' not in path.parts and path.suffix not in ['.pyc']:
                 archive.write(path, path.relative_to(ROOT))

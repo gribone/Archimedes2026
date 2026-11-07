@@ -140,7 +140,7 @@ def job_status(job_id: str):
 
 @app.get('/api/jobs/{job_id}/export/{filename}')
 def download(job_id: str, filename: str):
-    if filename not in ['profiles.json', 'assignments.csv', 'lookalikes.csv', 'report.json', 'all.zip']:
+    if filename not in ['profiles.json', 'assignments.csv', 'lookalikes.csv', 'enrichment.csv', 'report.json', 'all.zip']:
         raise HTTPException(404)
     with lock:
         job = jobs.get(job_id)
@@ -154,6 +154,8 @@ def download(job_id: str, filename: str):
                 if file.suffix in ['.json', '.csv']:
                     archive.write(file, file.name)
         return Response(buffer.getvalue(), media_type='application/zip', headers={'Content-Disposition': 'attachment; filename="forcecrm-results.zip"'})
+    if not (directory / filename).is_file():
+        raise HTTPException(404, 'Export unavailable for this run')
     return FileResponse(directory / filename, filename=filename)
 
 

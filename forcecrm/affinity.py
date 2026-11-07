@@ -21,4 +21,10 @@ def market_affinity(companies, customer_vats, primary_codes):
         # Five prior customer equivalents keep tiny groups close to neutral.
         lift = (customers + 5) / (total * prior + 5)
         log_lift += importance * np.log(key.map(lift).to_numpy())
+    if 'hotel_band' in companies:
+        band = companies.hotel_band
+        total = weight.groupby(band).sum()
+        customers = (weight * member).groupby(band).sum()
+        lift = (customers + 5) / (total * prior + 5)
+        log_lift += .10 * np.log(band.map(lift).fillna(1.).to_numpy(dtype=float))
     return log_lift

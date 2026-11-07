@@ -2,7 +2,9 @@ from collections import defaultdict
 import numpy as np
 from scipy.stats import fisher_exact
 
-LABELS = {'primary_activity': 'Κύρια δραστηριότητα', 'legal_type': 'Νομική μορφή',
+LABELS = {'hotel_band': 'Ετήσιες διανυκτερεύσεις ξενοδοχείων ανά κάτοικο στον δήμο',
+          'osm_amenity': 'Κατηγορία καταστήματος στο OpenStreetMap',
+          'primary_activity': 'Κύρια δραστηριότητα', 'legal_type': 'Νομική μορφή',
           'prefecture_name': 'Περιφερειακή ενότητα', 'municipality_name': 'Δήμος',
           'incorporation_year': 'Έτος ίδρυσης', 'is_branch': 'Υποκατάστημα'}
 

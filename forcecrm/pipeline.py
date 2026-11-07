@@ -16,6 +16,7 @@ from .evidence import significant_features
 from .features import build_features
 from .narrative import narrate, DEFAULT_LLM
 from .affinity import market_affinity
+from .enrichment import enrich
 
 
 def fit_portfolio(X, companies, portfolio):
@@ -111,6 +112,14 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     progress('Building activity embeddings and geographic features')
     feature_start = time.perf_counter()
     X, traits, primary, feature_meta = build_features(c, a, d, root, demo, model_path)
+    progress('Linking OpenStreetMap venues and municipal hotel statistics')
+    enrichment, coverage = enrich(c)
+    c['hotel_band'] = enrichment.hotel_band
+    for values, venue in zip(traits, enrichment.itertuples()):
+        if pd.notna(venue.hotel_band):
+            values.add(f'hotel_band:{venue.hotel_band}')
+        if venue.status == 'matched':
+            values.add(f'osm_amenity:{venue.amenity}')
     feature_seconds = time.perf_counter() - feature_start
     progress('Discovering 1–6 revenue-weighted customer profiles')
     fit = fit_portfolio(X, c, portfolio)
@@ -174,9 +183,11 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
                               'rss_mb_at_finish': psutil.Process().memory_info().rss / 1024 ** 2,
                               'platform': platform.platform(), 'processor': platform.processor()},
               'sources': ['GEMI Open Data — competition-only data', 'Geocoding powered by OpenStreetMap contributors, ODbL']}
+    report['enrichment'] = coverage
+    report['sources'] += ['OpenStreetMap contributors via Geofabrik (ODbL)', 'ELSTAT: municipal hotel nights 2024 and resident population 2021. ForceCRM calculated the ratios. ELSTAT bears no responsibility for the transformation.']
     preview = lookalikes.merge(c[['company_id', 'vat', 'company_name_el', 'city', 'latitude', 'longitude']], on='company_id')
     return {'profiles': profiles, 'assignments': assignments, 'lookalikes': lookalikes, 'report': report,
-            'preview': preview.replace({np.nan: None}).to_dict('records')}
+            'enrichment': enrichment, 'preview': preview.replace({np.nan: None}).to_dict('records')}
 
 
 def export_result(result, directory):
@@ -184,5 +195,8 @@ def export_result(result, directory):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / 'profiles.json').write_text(json.dumps(result['profiles'], ensure_ascii=False, indent=2, allow_nan=False), 'utf-8')
     (directory / 'report.json').write_text(json.dumps(result['report'], ensure_ascii=False, indent=2, allow_nan=False), 'utf-8')
-    for name in ['assignments', 'lookalikes']:
+    files = ['assignments', 'lookalikes']
+    if 'enrichment' in result:
+        files.append('enrichment')
+    for name in files:
         result[name].to_csv(directory / f'{name}.csv', index=False, encoding='utf-8-sig', float_format='%.8f')
