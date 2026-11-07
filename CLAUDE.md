@@ -8,8 +8,8 @@ Repo: github.com/gribone/Archimedes2026. Original data lives outside the repo in
 ### Branches (GitHub default = `main`)
 | Branch | What it is |
 |---|---|
-| `main` | **The submission.** FastAPI + plain-JS UI, `forcecrm/` package. = `feature/forcecrm-local-ai` + later commits: setup/docs fix `95878d7`, Greek narration rework `28f8f1b`, PDF card rebuild `e9218ef`, architecture doc `f027c1b`, then portfolio traits / activity mix. `git log --oneline` is authoritative. |
-| `feature/forcecrm-local-ai` | Original local-ai solution (`661cfc2`), without the fixes. Keep, don't merge. |
+| `main` | **The submission.** FastAPI + plain-JS UI, `forcecrm/` package. = `feature/forcecrm-local-ai` + later commits: setup/docs fix `95878d7`, Greek narration rework `28f8f1b`, PDF card rebuild `e9218ef`, architecture doc `f027c1b`, portfolio traits / activity mix `dd18c72`, task board `030a3ca`, then the merge of Dimitris's `feature/ui-titles-live-gemi` (grounded AI titles, weights panel, opt-in live ΓΕΜΗ check, offline Greece map, dark mode; branch deleted after merging). `git log --oneline` is authoritative. |
+| `feature/forcecrm-local-ai` | Original local-ai solution (`661cfc2`), without the fixes, plus Stratos's dark-mode commit `e780450`, which duplicates the dark mode already merged into `main`. Keep, don't merge. |
 | `feat/icp-engine-and-ui` | Teammate's alternative (Streamlit, `src/`, uv). Weaker; **not to be merged**. Teammate still pushes UI changes to it. |
 | `feat/stage1-ingest-baseline` | First commit of the ICP branch only (ingest + baseline). History only. |
 The user wants exactly these 4 branches on GitHub; delete any temporary branches after merging.
@@ -21,6 +21,8 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Hard rules:**
   - The LLM never affects profiles, scores or ranking; it only writes description text.
   - Never produce anything resembling a credit or solvency score (AI Act trap, see below).
+  - The only outbound runtime call is the **opt-in** live ΓΕΜΗ check (`forcecrm/live.py`): prospect ΑΦΜ only, the user's own key. Keep it opt-in and declared (README, `docs/ENRICHMENT.md`, card, `docs/RESPONSIBLE_AI.md`).
+  - Profile titles come from `forcecrm/titles.py`: the LLM picks phrases, stored in `activity_families`. Don't confuse this with the per-ΚΑΔ `activity_mix` from `evidence.py`.
   - Never commit data or outputs: `*.csv`, `*.xlsx`, `outputs/`, `models/` and `.cache/` are gitignored.
 
 ### Environment on this Mac (Apple A18 Pro, 8 GB RAM, macOS 27)
@@ -42,9 +44,9 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Task | Command | Notes |
 |---|---|---|
 | Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
-| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~2.5 min here, including 3 LLM descriptions |
+| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min here, including 3 LLM titles + descriptions (faster when Ollama keeps the model loaded) |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
-| Tests | `.venv/bin/python -m pytest -q` | 20 pass |
+| Tests | `.venv/bin/python -m pytest -q` | 50 pass |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
 | Benchmarks | `scripts.benchmark embeddings` / `scripts.benchmark llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |
@@ -61,7 +63,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 
 - **Profiles:** `main` finds 3 (tourist islands: Cyclades, Heraklion, Chania, Dodecanese; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ). Stability is 93% / 88% / 91%.
 - **Portfolio-wide business traits:** ΙΚΕ 110/300 (2.4×) and school canteens 19/300 (2.4×, q = 0.02).
-- **LLM benchmark** (share of sentences passing the grounding checks / seconds per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. Ministral stays the default for its European provenance. That is a team decision; switching is a one-line change of `DEFAULT_LLM` in `forcecrm/narrative.py`.
+- **LLM benchmark** (share of sentences passing the grounding checks / seconds per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. **Decision (user, 2026-11-07): ship Ministral 3 3B** for its European provenance. It overrode Dimitris's switch to Qwen during the merge. Revisit when Krikri-8B or EuroLLM-9B are benchmarked (T4). `DEFAULT_LLM` in `forcecrm/narrative.py` is the single source of truth, and `run.py` pulls whatever it names.
 - **Embeddings** (family hit@5): E5-small 93.2%, E5-base 93.2%, MiniLM 89.0%. These reproduce the original author's numbers.
 - **Determinism:** the same inputs give byte-identical `lookalikes.csv` and `assignments.csv`, verified across separate runs.
 
@@ -83,12 +85,13 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Long runs:** the Mac has 8 GB RAM, so don't run two LLM-heavy jobs at once.
 
 ### Open problems on `main` (priority order)
-1. **Browser flow untested:** upload → profiles (including the new portfolio-traits card and activity-mix table) → prospects → export. Only `node --check web/app.js` and the API-level pipeline have been verified.
+1. **Browser flow untested:** upload → profiles (portfolio-traits card, activity-mix table, AI titles) → prospects and map → options panel (custom weights) → live ΓΕΜΗ check (needs a real key) → export. Only `node --check` and the API-level pipeline have been verified.
 2. **Greek fluency** has no native-speaker rating yet (the benchmark JSON has null rating fields). Activity names appear in ΓΕΜΗ capitals inside «».
 3. **Clean install untested on Windows/Linux.** The durable repo setup on this Mac hasn't been done (see Environment).
 4. **LLM default:** Ministral passes the checks least often (61%) and is the slowest. Qwen3 or Gemma are faster and pass more, but they aren't European. It's the user's call.
 5. **Known limits the docs admit:** confidence is uncalibrated; the statistics are exploratory (the same data forms and tests the clusters); profiles on this portfolio are geographic by nature (`docs/ARCHITECTURE.md` §3).
 6. **Cosmetic:** the PDF card's page header says "TECHNICAL BRIEF" (the original author's label).
+7. **ΓΕΜΗ live check:** confirm the API host (`opendata-api.businessportal.gr` vs `opendata.businessportal.gr`; override with `GEMI_API_URL`) and the ODC-BY 1.0 licence on the official portal. So far the licence is confirmed only by a third-party source.
 
 Done 2026-11-07:
 - Greek narration rework, with quality/stability/confidence stated in the text

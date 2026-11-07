@@ -36,7 +36,9 @@ BANNED = ['άτομ', 'καταγωγ', 'κυριαρχ', 'πλειοψηφ', '�
 BAD_PATTERNS = [r'\bαυτούς (?!τους)', r'συνεισφέρουν με', r'\bστα \d+ πελάτ', r'πελατολογίο\b',
                 r'\bπεριφέρεια\b', r'\bστο \d+ πελάτ', r'\bοι \d+ πελάτες(?! του)',
                 # 'The profile includes 95 of the 100 customers' wrongly implies the others are outside it.
-                r'στο προφίλ (ανήκουν|περιλαμβάνονται) \d+ από']
+                r'στο προφίλ (ανήκουν|περιλαμβάνονται) \d+ από',
+                # Singular subject with a plural count: 'Η ... Εταιρεία (ΙΚΕ) είναι 74 από τους 100'.
+                r'\bεταιρεία \([^)]*\) είναι \d+']
 
 
 def greek_number(value, digits=1):

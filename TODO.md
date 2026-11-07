@@ -42,7 +42,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 ## User's tasks
 
 ### T1 · Fix the UI: functional login; remove or fix non-functional buttons · P1 · Lane A
-- **Status:** open
+- **Status:** open. Since the merge, `main` also has dark mode, the "Περισσότερες επιλογές" panel (weights and live ΓΕΜΗ check) and an offline Greece map. Include them in the click-through audit.
 - **Context:** there is **no login today**, neither on `main` (FastAPI + `web/`) nor on the teammate's Streamlit branch. The app binds to 127.0.0.1 and has origin/host checks only.
 - **Decide first 🧑‍⚖️ (ask the user):**
   - Is login a real requirement (multi-user, per-user runs) or demo polish?
@@ -111,7 +111,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
   - A run with only the narration changed skips stages 1–8.
 
 ### T4 · Land on the LLM to ship 🧑‍⚖️ · P1 · Lane D
-- **Status:** open (needs a user decision)
+- **Status:** decided for now (user, 2026-11-07): **ship Ministral 3 3B**, which overrides the Qwen switch in Dimitris's merged branch. The work below (measuring Krikri and EuroLLM) remains open. Re-ask the user if a Greek-specialised European model wins.
 - **Data so far** (Apple A18 Pro, 8 GB; share of sentences passing the grounding checks / seconds per profile / RAM):
 
   | Model | Pass rate | Time per profile | RAM |
@@ -189,7 +189,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
     7. extra points
     8. limitations
   - Cite the data sources on a slide: **ΓΕΜΗ Open Data; GPS © OpenStreetMap contributors (ODbL)**. The brief requires this in every presentation.
-  - Write a demo script with a **pre-computed run as fallback**: a full run takes about 2.5 min on 8 GB, so warm up Ollama before going on stage.
+  - Write a demo script with a **pre-computed run as fallback**: a full run takes about 1.6–2.5 min on 8 GB, so warm up Ollama before going on stage.
 - **Acceptance:** the deck exists, the demo was rehearsed within 5 minutes, and the fallback path was tested.
 
 ### T9 · Human Greek fluency rating · P1 · Lane D
@@ -250,7 +250,8 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
     - mentions Annex III and the 2 Dec 2027 date (Reg. 2026/1744)
     - fits on **1 page**: export a PDF
   - PDF model card: fix the header ("TECHNICAL BRIEF" → "MODEL & DATA CARD") and add the portfolio-traits / geography finding.
-  - AI-tools declaration: add the teammate's tools if they used any.
+  - AI-tools declaration: add the teammate's tools if they used any. Dimitris's merged commit was co-authored by Claude Code, which is already declared.
+  - ΓΕΜΗ live check: confirm the API host and the ODC-BY 1.0 licence on the official portal (`docs/ENRICHMENT.md`, "Still to check").
 - **Acceptance:** both PDFs fit the page limits (card 1–2 pages, AI Act 1 page) and their numbers match the code.
 
 ### T15 · Confidence calibration · P2 · Lane E

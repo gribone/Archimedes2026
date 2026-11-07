@@ -10,7 +10,7 @@ def main():
     parser.add_argument('--data', type=Path, default=Path('.'))
     parser.add_argument('--output', type=Path, default=Path('outputs/cli'))
     parser.add_argument('--demo', action='store_true')
-    parser.add_argument('--model', default='ministral-3:3b')
+    parser.add_argument('--model', default='qwen3:1.7b')
     parser.add_argument('--bootstrap', type=int, default=20)
     args = parser.parse_args()
     if not args.demo and not args.portfolio:

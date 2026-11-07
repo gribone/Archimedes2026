@@ -6,7 +6,7 @@
 
 ForceCRM recommends Greek foodservice businesses for a sales representative to review. Its inputs are customer VATs, indicative revenue, registry activities, legal form, geography and incorporation date. The supplied workbook contains 300 distinct customers. All matched the registry. The three CSVs contain 24,424 venues, 23,945 VATs and 3,736 activity descriptions. GPS coverage is 96.01%. All activity IDs have descriptions. One row has the unknown activity type `Λοιπή` and is ignored.
 
-Business data comes from GEMI Open Data. Geocoding is powered by OpenStreetMap contributors under ODbL. ForceCRM supplied these extracts exclusively for competition use. Coordinates support local geographic features. Offline venue matching uses an ODbL OpenStreetMap extract. Market context combines ELSTAT municipal hotel nights in 2024 with 2021 census residents. [Sources, coverage, terms and limitations](ENRICHMENT.md).
+Business data comes from GEMI Open Data. Geocoding is powered by OpenStreetMap contributors under ODbL. ForceCRM supplied these extracts exclusively for competition use. Coordinates support local geographic features. Offline venue matching uses an ODbL OpenStreetMap extract. Market context combines ELSTAT municipal hotel nights in 2024 with 2021 census residents. The prospects map uses a public-domain Natural Earth outline. An optional, opt-in live check queries the ΓΕΜΗ Open Data API (ODC-BY 1.0) for the top prospects' registry status. It sends only their ΑΦΜ and needs the user's own key. [Sources, coverage, terms and limitations](ENRICHMENT.md).
 
 ## Model selection
 

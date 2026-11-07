@@ -192,3 +192,12 @@ def test_activity_sentence_precedes_quality_sentence():
     claims = narrate(p, None, demo=True)['claims']
     assert claims[-2]['fact_ids'] == ['activity_mix'] and '«ΚΑΦΕΤΕΡΙΑ» 31%' in claims[-2]['sentence']
     assert claims[-1]['fact_ids'] == ['quality']
+
+
+def test_singular_legal_form_with_plural_count_is_rejected():
+    from forcecrm.narrative import check_sentence
+    fact = ('74 από τους 100 πελάτες (74%) είναι Ιδιωτικές Κεφαλαιουχικές Εταιρείες (ΙΚΕ), '
+            '4,8 φορές συχνότερα από ό,τι στο σύνολο των επιχειρήσεων εστίασης.')
+    with pytest.raises(ValueError):
+        check_sentence('Η Ιδιωτική Κεφαλαιουχική Εταιρεία (ΙΚΕ) είναι 74 από τους 100 πελάτες (74%), 4,8 φορές συχνότερα.', fact)
+    assert check_sentence('Ιδιωτικές Κεφαλαιουχικές Εταιρείες (ΙΚΕ) είναι 74 από τους 100 πελάτες (74%), 4,8 φορές συχνότερα.', fact)

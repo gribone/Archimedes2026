@@ -30,3 +30,19 @@ Use `python -m scripts.audit_ranking` and `python -m scripts.audit_ranking --wit
 The matcher accepted 482 of 24,424 venues (1.97%), or 3.23% of 14,908 eligible venues. Median accepted distance was 7.65 m. Exact normalized street names agreed on 153 accepted links. Six venues had near-tied candidates and four claimed a shared OSM node. The other decisions were 975 missing GPS, 8,541 uninformative names after the GPS check and 14,416 unmatched. These are coverage figures, not accuracy estimates.
 
 The municipal ratio covers 15,092 venues (61.8%). Across five internal splits of 240 training and 60 withheld VATs, mean Recall@500 was 18.0% without tourism and 21.3% with it. Recall@2,000 was 50.3% and 51.3%, respectively. See the [paired enriched results](tourism-audit.json) and [unenriched results](ranking-audit.json). Splits overlap and the organizer controls the independent hidden evaluation.
+
+
+## Map outline (offline)
+
+`web/greece-map.json` is a simplified Greece coastline from [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/) (public domain). It is drawn under the prospects map, so the map needs no online tiles.
+
+## Live ΓΕΜΗ status check (optional, online)
+
+`forcecrm/live.py` is the only feature that contacts an external service. It is **off unless the user starts it** for a finished analysis.
+
+- **What it does:** for the top N prospects (1–200), it queries the ΓΕΜΗ Open Data API (`/companies?afm=<ΑΦΜ>`) and records whether the business is still active (`active`, `inactive` or `not_found`), plus its ΓΕΜΗ number and last status change. The results go to `live-status.csv`, next to the other exports.
+- **Data sent:** only the prospects' ΑΦΜ. The ΑΦΜ comes from the same public registry. The customer portfolio and revenue are never sent.
+- **Access:** a personal ΓΕΜΗ `api_key` is required, entered in the UI or set as `GEMI_API_KEY`. The key is not stored.
+- **Limits and caching:** requests are rate-limited (`GEMI_REQUESTS_PER_MINUTE`, default 8, which matches the documented API limit) and retried with back-off on 429/5xx errors. Results are cached for 7 days in `.cache/gemi-status.json`. A rejected key or an unreachable API stops the check with a Greek error message. It never affects profiles, scores or ranking.
+- **Licence and attribution:** ODC-BY 1.0, © Κεντρική Υπηρεσία ΓΕΜΗ, Κεντρική Ένωση Επιμελητηρίων Ελλάδος. The attribution is written into every row of `live-status.csv`.
+- **Still to check:** the ODC-BY licence is confirmed only by a third-party reference so far, and the API host (`opendata-api.businessportal.gr`, configurable with `GEMI_API_URL`) should be confirmed on the official portal before the demo.

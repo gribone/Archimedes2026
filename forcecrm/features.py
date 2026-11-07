@@ -12,6 +12,26 @@ from sklearn.decomposition import TruncatedSVD
 
 EMBEDDING_MODEL = 'intfloat/multilingual-e5-small'
 AS_OF = '2026-11-01'
+# Validated defaults; custom weights are an exploratory option and are re-checked by the holdout.
+DEFAULT_WEIGHTS = {'activity': .65, 'geography': .20, 'legal_type': .10, 'age': .05}
+
+
+def normalize_weights(weights):
+    """Return weights over exactly the four blocks, non-negative and summing to 1."""
+    if weights is None:
+        return dict(DEFAULT_WEIGHTS)
+    if not isinstance(weights, dict) or set(weights) != set(DEFAULT_WEIGHTS):
+        raise ValueError(f'Weights must contain exactly: {", ".join(DEFAULT_WEIGHTS)}.')
+    values = {}
+    for name in DEFAULT_WEIGHTS:
+        value = weights[name]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value) or value < 0:
+            raise ValueError(f'Weight {name} must be a non-negative number.')
+        values[name] = float(value)
+    total = sum(values.values())
+    if total <= 0:
+        raise ValueError('At least one weight must be positive.')
+    return {name: value / total for name, value in values.items()}
 
 
 def description_embeddings(descriptions, root: Path, demo=False, model_path=None):
@@ -49,7 +69,12 @@ def description_embeddings(descriptions, root: Path, demo=False, model_path=None
     return values, identity
 
 
-def build_features(c, a, d, root, demo=False, model_path=None):
+def is_custom(weights):
+    return any(abs(weights[name] - value) > 1e-6 for name, value in DEFAULT_WEIGHTS.items())
+
+
+def build_features(c, a, d, root, demo=False, model_path=None, weights=None):
+    weights = normalize_weights(weights)
     relevant_ids = set(a.loc[a.kind.eq('primary') | (a.kind.eq('secondary') & a.activity_id.str.startswith('56')), 'activity_id'])
     used = d[d.activity_id.isin(relevant_ids)].reset_index(drop=True)
     if used.empty:
@@ -91,8 +116,8 @@ def build_features(c, a, d, root, demo=False, model_path=None):
     years = (pd.Timestamp(AS_OF) - pd.to_datetime(c.incorporation_date, errors='coerce')).dt.days / 365.25
     age = np.clip(years.fillna(years.median() if years.notna().any() else 4).to_numpy(), 0, 15)
     age_block = normalize(np.c_[np.exp(-((age[:, None] - np.array([2, 4, 6, 8])) ** 2) / 8), years.isna()])
-    X = normalize(np.c_[semantic * np.sqrt(.65), geography * np.sqrt(.20),
-                         legal * np.sqrt(.10), age_block * np.sqrt(.05)]).astype('float32')
+    X = normalize(np.c_[semantic * np.sqrt(weights['activity']), geography * np.sqrt(weights['geography']),
+                         legal * np.sqrt(weights['legal_type']), age_block * np.sqrt(weights['age'])]).astype('float32')
     traits = []
     for i, row in enumerate(c.itertuples()):
         values = {f'legal_type:{row.legal_type}', f'prefecture_name:{row.prefecture_name}',
@@ -103,4 +128,4 @@ def build_features(c, a, d, root, demo=False, model_path=None):
     return X, traits, primary_codes, {'embedding': identity, 'as_of': AS_OF,
         'missing_primary_venues': int(np.count_nonzero(np.linalg.norm(semantic, axis=1) == 0)),
         'secondary_codes_retained': sum(map(len, retained)), 'embedded_description_count': len(used),
-        'block_weights': {'activity': .65, 'geography': .20, 'legal_type': .10, 'age': .05}}
+        'block_weights': weights, 'custom_weights': is_custom(weights)}

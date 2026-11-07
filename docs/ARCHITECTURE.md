@@ -28,7 +28,7 @@ Everything runs on the laptop. The only AI components are:
 - **multilingual-e5-small** (sentence-transformers), which embeds Greek activity (ΚΑΔ) descriptions
 - **Ministral 3 3B** (Ollama), which writes the profile descriptions
 
-No external AI service is called at runtime.
+No external AI service is called at runtime. The only outbound call is an **opt-in** ΓΕΜΗ Open Data status check of top prospects (§2.11). It is data, not AI, and is off by default.
 
 | File | Responsibility |
 |---|---|
@@ -39,6 +39,8 @@ No external AI service is called at runtime.
 | `forcecrm/clustering.py` | Profile discovery (A2) and bootstrap stability (A5) |
 | `forcecrm/evidence.py` | Statistical over-representation tests (A4) |
 | `forcecrm/narrative.py` | Grounded Greek descriptions (A6) |
+| `forcecrm/titles.py` | Grounded profile titles: the LLM picks from data-backed phrases (A6) |
+| `forcecrm/live.py` | Opt-in live ΓΕΜΗ Open Data status check of top prospects |
 | `forcecrm/affinity.py` | Shrunken market-concentration signal used in ranking (A7) |
 | `forcecrm/pipeline.py` | Orchestrates everything, builds the exports, runs the internal holdout test |
 | `forcecrm/server.py` + `web/` | FastAPI backend and plain-JS UI (A8) |
@@ -108,7 +110,10 @@ The same step builds a **trait set** per venue for the statistics: legal form, p
 5. A **computed** sentence states the profile's most common primary activities against the market.
 6. A **computed** final sentence states profile quality, bootstrap stability (mean and p10) and fit confidence. It says explicitly that this is not a purchase probability.
 
-The descriptions carry an AI label in the UI and in `profiles.json`. Profile titles are built deterministically from the top traits. **The LLM never influences scores, profiles or rankings.**
+The descriptions carry an AI label in the UI and in `profiles.json`. **Titles** (`titles.py`) are also grounded:
+- Candidate phrases come from significant place and legal-form traits (lift ≥ 1.5, ≥ 15% of the profile) and from the profile's **activity families**. These are ΚΑΔ codes grouped into names a salesperson recognises, e.g. καφετέριες, εστιατόρια/ταβέρνες, κυλικεία/καντίνες, each covering ≥ 15% of the profile. They are stored as `activity_families`, separate from the per-ΚΑΔ `activity_mix`.
+- The LLM only **picks** from these phrases, through an enum-constrained JSON schema. The widest-coverage place always leads.
+- An invalid choice falls back to a fixed rule. `title_source` records `ai` or `template-fallback`. **The LLM never influences scores, profiles or rankings.**
 
 ### 2.8 Lookalike ranking (`pipeline.rank_candidates` + `affinity.py`, A7)
 For every venue whose ΑΦΜ is **not** a customer:
@@ -139,10 +144,21 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 - **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.3% / 51.3%.
 
 ### 2.10 Web app (`server.py`, A8)
+- **Περισσότερες επιλογές** panel:
+  - **Adjustable similarity weights.** They are passed to `build_features`; the validated defaults are 65 / 20 / 10 / 5. A custom run is flagged in `report.json` (`custom_weights`) and re-runs the holdout with the defaults for comparison.
+  - **Live ΓΕΜΗ check** (§2.11).
+- The prospects map is drawn over an offline Natural Earth outline of Greece.
 - FastAPI bound to `127.0.0.1`, with a middleware that rejects cross-site requests.
 - `POST /api/analyze` starts the pipeline in a background thread, and the UI polls `/api/jobs/{id}` for progress.
 - Each job writes to `outputs/<job_id>/`. The files can be downloaded through `/api/jobs/{id}/export/{file}`, and the latest completed run is restored on startup.
 - A **demo mode** uses a synthetic portfolio, lexical TF-IDF instead of E5, and no LLM. It is clearly labelled and not valid for submission.
+
+### 2.11 Optional live ΓΕΜΗ status check (`live.py`)
+After an analysis, the user can check whether the top N prospects (≤ 200) are still active in the ΓΕΜΗ Open Data API, using their own `api_key`.
+- **Data sent:** only prospect ΑΦΜ.
+- **Limits:** 8 requests per minute by default, with back-off on 429/5xx. Results are cached for 7 days in `.cache/gemi-status.json`.
+- **Output:** `live-status.csv`, with ODC-BY attribution.
+- It runs in its own thread, can be stopped, and **never changes profiles, scores or ranking**.
 
 ## 3. Why the profiles are mostly geographic
 
@@ -190,7 +206,8 @@ A `--sweep` over partial centring (α = 0.5 / 0.8) and lower activity weights (0
 
 ### Where small differences are possible
 - **Different hardware, OS or library versions** can change floating-point results in the embeddings or matrix maths in the last decimal places. That can swap two candidates whose scores are almost tied. Pinned package versions (`requirements*.txt`) and the embedding cache keep this rare. The aggregate results (profiles, recall) should not change.
-- **Descriptions only:** temperature 0, seed 42 and top-k 1 make the text repeatable on the same machine with the same Ollama and model digest. Across machines, GPU/CPU kernels can produce different wording. Every number in the text is still checked against the data, so wording may vary but facts cannot. `profiles.json` records the model digest, prompt hash and rejected drafts for auditing.
+- **Custom weights:** a run with non-default weights is a different model by design. Its recommendations differ, and `report.json` flags it.
+- **Descriptions only:** temperature 0, seed 42 and top-k 1 make the text repeatable on the same machine with the same Ollama and model digest. In practice the wording can also differ between runs on the same machine, depending on Ollama's state, e.g. whether the model was already loaded by the title step. On 2026-11-07, the same profiles got 3–4 versus 6 of 6 sentences passing the checks. Across machines, GPU/CPU kernels can produce different wording. Every number in the text is still checked against the data, so wording may vary but facts cannot. `profiles.json` records the model digest, prompt hash and rejected drafts for auditing.
 
 ### How to check it yourself
 Run the analysis twice and compare the files:

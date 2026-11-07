@@ -11,6 +11,13 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent
 
 
+def default_llm():
+    """The shipped Ollama model, read from forcecrm/narrative.py without importing dependencies."""
+    import re
+    match = re.search(r"^DEFAULT_LLM = '([^']+)'", (ROOT / 'forcecrm' / 'narrative.py').read_text('utf-8'), re.M)
+    return match.group(1)
+
+
 def main():
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group()
@@ -31,7 +38,15 @@ def main():
     marker = env / ('demo-installed' if args.demo else 'ai-installed')
     signature = requirements.read_text() + (ROOT / 'requirements.txt').read_text()
     if not marker.exists() or marker.read_text() != signature:
-        subprocess.check_call([str(executable), '-m', 'pip', 'install', '-r', str(requirements)])
+        has_pip = subprocess.call([str(executable), '-m', 'pip', '--version'],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+        uv = shutil.which('uv')
+        if not has_pip and uv:
+            subprocess.check_call([uv, 'pip', 'install', '--python', str(executable), '-r', str(requirements)])
+        else:
+            if not has_pip:
+                subprocess.check_call([str(executable), '-m', 'ensurepip', '--upgrade'])
+            subprocess.check_call([str(executable), '-m', 'pip', 'install', '-r', str(requirements)])
         marker.write_text(signature)
     portable = ROOT / '.tools' / 'ollama' / 'ollama.exe'
     ollama = shutil.which('ollama') or (str(portable) if portable.exists() else None)
@@ -63,7 +78,7 @@ def main():
             raise SystemExit('Install Ollama from https://ollama.com/download, then run: python run.py --first-run')
         try:
             subprocess.check_call([str(executable), '-m', 'scripts.download_models'])
-            subprocess.check_call([ollama, 'pull', 'ministral-3:3b'])
+            subprocess.check_call([ollama, 'pull', default_llm()])
         except BaseException:
             if ollama_process:
                 ollama_process.terminate()
