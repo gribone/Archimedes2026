@@ -36,7 +36,7 @@ Every output is fully transparent, auditable, and explainable (Article 50 & Arti
 ### Q4. Πού μπορεί να κάνει λάθος και πώς το εντοπίζουμε; (Where can it make mistakes and how do we detect them?)
 | Potential Failure Mode | How We Detect & Mitigate It |
 | :--- | :--- |
-| **1. Declarative / Noisy Secondary KADs** (Companies declaring 50–239 KADs they do not practice) | Detected via `total_kads` diagnostics in `src/ingest.py`. Mitigated in `src/features.py` via Smooth IDF weighting ($\text{idf\_power}=1.25$), sublinear secondary-count damping ($n_{\text{sec}}^{-0.35}$), and L2 vector normalization. Verified via our Multi-KAD Fairness Check (`Mean Sim = 0.4615` for 1-KAD vs `0.4747` for $\ge 20$-KAD companies). |
+| **1. Declarative / Noisy Secondary KADs** (Companies declaring 50–239 KADs they do not practice) | Detected via `total_kads` diagnostics in `src/ingest.py`. Mitigated in `src/features.py` via Smooth IDF weighting ($\gamma_{\text{idf}}=1.25$), sublinear secondary-count damping ($n_{\text{sec}}^{-0.35}$), and L2 vector normalization. Verified via our Multi-KAD Fairness Check (`Mean Sim = 0.4615` for 1-KAD vs `0.4747` for $\ge 20$-KAD companies). |
 | **2. Spurious Rare Features in Small Clusters** (A rare municipality or KAD appearing 1–2 times by luck) | Detected by comparing `raw_lift` vs `eb_lift`. Mitigated in `src/icp_engine.py` via Exact Hypergeometric tests with Benjamini-Hochberg FDR multiple-testing correction ($p_{\text{FDR}} \le 0.05$) and Empirical Bayes Shrinkage ($m_{\text{prior}}=10.0$). |
 | **3. Unstable / Over-Segmented Clusters** | Detected via 30x Bootstrap resampling (`compute_bootstrap_stability`) reporting both Global Adjusted Rand Index (`ARI = 0.9849`) and per-profile stability in `profiles.json`, plus automatic fallback to $K=1$ («ένα ICP») if Silhouette $< 0.08$. |
 | **4. Atypical Clients Forced into Wrong ICP** | Detected and prevented via the dynamic `NO_FIT` threshold in `assignments.csv` (flagging 14 atypical clients whose similarity score falls below the cutoff). |
@@ -54,3 +54,4 @@ In accordance with Section 6 (*«Τα AI coding assistants επιτρέποντ�
   2. **Boilerplate & Pipeline Scaffolding:** Assisting in writing modular Python code across `src/ingest.py`, `src/config.py`, `src/features.py`, `src/icp_engine.py`, `src/llm_explainer.py`, `evaluate_holdout.py`, and the Streamlit dashboard (`app.py`).
   3. **Documentation & Mathematical Typesetting:** Formatting the mathematical documentation in `README.md`, `MODEL_DATA_CARD.md`, and `EU_AI_ACT_ASSESSMENT.md`.
 - **Runtime Guarantee:** During execution, the application makes **zero calls to external AI APIs or cloud services**. All embeddings, statistical tests, clustering, and LLM explanations execute 100% locally on the host machine.
+

@@ -105,9 +105,9 @@ Below is the complete mathematical specification of how every weight, vector, st
 ### 3.1 Multi-Branch VAT Resolution & Canonical Primary KAD (`src/ingest.py`)
 
 1. **Multi-Branch VAT Feature (`branch_count`):**
-   A single Greek tax ID (`vat` / ΑΦΜ) can correspond to multiple store rows (`company_id`) in `vwHackCompany.csv`. For each `vat`, we compute:
-   $$\text{vat\_total\_locations}(v) = |\{i : \text{vat}_i = v\}|, \quad \text{vat\_branch\_count}(v) = \sum_{i : \text{vat}_i = v} \mathbb{I}(\text{is\_branch}_i = 1)$$
-   $$\text{branch\_count}_i = \max\big(\text{vat\_branch\_count}(\text{vat}_i),\; \text{vat\_total\_locations}(\text{vat}_i) - 1\big)$$
+   A single Greek tax ID (`vat` / ΑΦΜ) can correspond to multiple store rows (`company_id`) in `vwHackCompany.csv`. For each `vat`, we compute `vat_total_locations` $L_{\text{tot}}(v)$ and `vat_branch_count` $L_{\text{br}}(v)$:
+   $$L_{\text{tot}}(v) = |\{i : \text{vat}_i = v\}|, \quad L_{\text{br}}(v) = \sum_{i : \text{vat}_i = v} \mathbb{I}(\text{branch}_i = 1)$$
+   $$B_i = \max\big(L_{\text{br}}(\text{vat}_i),\; L_{\text{tot}}(\text{vat}_i) - 1\big)$$
    **Strict Lookalike Exclusion Trap:** Every `company_id` whose `vat` appears in the client Excel is flagged with `is_client_vat = True`. When generating `lookalikes.csv`, **all** rows with `is_client_vat == True` (both headquarters and every branch) are strictly excluded from the candidate pool.
 
 2. **Canonical Primary KAD (`primary_kad`):**
@@ -119,14 +119,14 @@ Below is the complete mathematical specification of how every weight, vector, st
 
 ### 3.2 Semantic KAD Embeddings & Multi-KAD Noise Suppression (`src/features.py`)
 
- businesses in the dataset declare between **1 and 239 KADs** (mean `6.63`). Many secondary KADs (`Δευτερεύουσα`) are declarative noise, and **Requirement A3** mandates that companies with many KADs must never be penalized by the similarity metric.
+Businesses in the dataset declare between **1 and 239 KADs** (mean `6.63`). Many secondary KADs (`Δευτερεύουσα`) are declarative noise, and **Requirement A3** mandates that companies with many KADs must never be penalized by the similarity metric.
 
 #### Step 1: Unique KAD Description Embeddings
 Each of the $M = 3,736$ unique 8-digit KAD codes $a \in \{1, \dots, M\}$ is formatted with its 4-digit category prefix and Greek description (`"ΚΑΔ 5611.0100: <description>"`) and embedded once into an L2-normalized vector $\mathbf{e}_a \in \mathbb{R}^{D_{\text{emb}}}$ ($\|\mathbf{e}_a\|_2 = 1$).
 
 #### Step 2: Smooth Inverse Document Frequency ($\text{IDF}_a$)
-Let $N = 24,424$ be the total number of companies and $\text{df}_a$ be the number of companies declaring KAD $a$. To suppress ubiquitous, uninformative secondary KADs, we compute:
-$$\text{IDF}_a = \left(\ln\left(\frac{1 + N}{1 + \text{df}_a}\right) + 1.0\right)^{\gamma_{\text{idf}}}, \quad \text{where } \gamma_{\text{idf}} = \text{idf\_power} = 1.25$$
+Let $N = 24,424$ be the total number of companies and $\text{df}_a$ be the number of companies declaring KAD $a$. To suppress ubiquitous, uninformative secondary KADs, we compute smooth IDF with exponent $\gamma_{\text{idf}} = 1.25$ (`idf_power`):
+$$\text{IDF}_a = \left(\ln\left(\frac{1 + N}{1 + \text{df}_a}\right) + 1.0\right)^{\gamma_{\text{idf}}}$$
 
 #### Step 3: Activity-Type Weighting & Sublinear Secondary Damping
 For company $i$ and declared activity $a$ with normalized activity type $t_{i,a} \in \{\text{Κύρια}, \text{Δευτερεύουσα}, \text{Βοηθητική}\}$, let $n_{\text{sec}}(i) = \max(1, |\{a' : t_{i,a'} \neq \text{Κύρια}\}|)$ be the number of non-primary KADs declared by company $i$. The base weight $w_{\text{type}}(i, a)$ is:
@@ -135,7 +135,7 @@ w_{\text{prim}} = 3.50 & \text{if } t_{i,a} = \text{Κύρια} \\[6pt]
 \dfrac{w_{\text{sec}}}{n_{\text{sec}}(i)^{\delta}} = \dfrac{0.75}{n_{\text{sec}}(i)^{0.35}} & \text{if } t_{i,a} = \text{Δευτερεύουσα} \\[10pt]
 \dfrac{w_{\text{aux}}}{n_{\text{sec}}(i)^{\delta}} = \dfrac{0.25}{n_{\text{sec}}(i)^{0.35}} & \text{if } t_{i,a} = \text{Βοηθητική}
 \end{cases}$$
-where $\delta = \text{secondary\_count\_damping} = 0.35$ prevents a company with 100+ secondary KADs from having its primary KAD drowned out by secondary noise.
+where $\delta = 0.35$ (`secondary_count_damping`) prevents a company with 100+ secondary KADs from having its primary KAD drowned out by secondary noise.
 
 #### Step 4: Sparse Aggregation & L2 Normalization
 The total link weight is $W_{i,a} = w_{\text{type}}(i, a) \cdot \text{IDF}_a$. The company's semantic activity vector $\mathbf{v}_i^{\text{sem}}$ is computed via sparse matrix multiplication and **L2-normalized**:
@@ -161,7 +161,7 @@ To satisfy **Requirement A1** and **Extra Point X1 (Geographic ICP)**, we constr
    One-hot encoding of `legal_type` (`ΑΤΟΜΙΚΗ`, `ΙΚΕ`, `ΕΕ`, `ΟΕ`, `ΑΕ`, `ΕΠΕ`, `OTHER`), L2-normalized.
 
 4. **Company Age & Branch Block ($\mathbf{u}_i^{\text{age}}, \|\mathbf{u}_i^{\text{age}}\|_2 = 1$):**
-   Standardized `company_age_years` (years from `incorporation_date` to Nov 2026), binary `is_branch`, and standardized $\ln(1 + \text{branch\_count}_i)$, L2-normalized.
+   Standardized `company_age_years` (years from `incorporation_date` to Nov 2026), binary `is_branch`, and standardized $\ln(1 + B_i)$, L2-normalized.
 
 #### Unified Company Vector ($\mathbf{z}_i$)
 We concatenate the five unit-norm blocks using the block weights in `PipelineConfig` and apply final L2 normalization:
@@ -173,7 +173,7 @@ $$\mathbf{z}_i = \frac{\tilde{\mathbf{z}}_i}{\|\tilde{\mathbf{z}}_i\|_2}, \qquad
 ### 3.4 Turnover-Weighted ICP Discovery & Bootstrap Stability (`src/icp_engine.py`)
 
 1. **Client Turnover Weighting (Requirement A2):**
-   Given client $j \in \{1, \dots, N_c\}$ with turnover $T_j > 0$, we compute raw log-turnover weights $\tilde{w}_j = \ln(1 + T_j)$, normalize by their mean $\bar{w} = \frac{1}{N_c}\sum_j \tilde{w}_j$, and blend with uniform weights using $\alpha = \text{turnover\_weight\_alpha} = 0.50$:
+   Given client $j \in \{1, \dots, N_c\}$ with turnover $T_j > 0$, we compute raw log-turnover weights $\tilde{w}_j = \ln(1 + T_j)$, normalize by their mean $\bar{w} = \frac{1}{N_c}\sum_j \tilde{w}_j$, and blend with uniform weights using $\alpha = 0.50$ (`turnover_weight_alpha`):
    $$w_j = (1 - \alpha)\cdot 1.0 + \alpha \cdot \frac{\tilde{w}_j}{\bar{w}}$$
    This gives higher-revenue clients stronger pull on ICP formation while preventing a single extreme-turnover outlier from hijacking a cluster.
 
@@ -201,7 +201,7 @@ To satisfy **Requirement A4** (*"Τα χαρακτηριστικά που ορί
    $$p_{\text{FDR}}^{(r)} = \min_{j \ge r} \left(1.0,\; \frac{m}{j}\, p_{(j)}\right)$$
 
 3. **Empirical Bayes Shrinkage Lift ($\text{Lift}_{\text{EB}}$):**
-   Raw lift $\frac{x_{k,f}/n_k}{K_{\text{univ}}(f)/N}$ explodes on rare traits (e.g., if $K_{\text{univ}}(f) = 2$ and $x_{k,f} = 1$, raw lift is $>80\times$ purely by chance). We place a Beta-Binomial prior centered at the Universe baseline rate $p_{\text{univ}}(f) = \frac{K_{\text{univ}}(f)}{N}$ with prior strength $m_{\text{prior}} = \text{eb\_prior\_strength} = 10.0$:
+   Raw lift $\frac{x_{k,f}/n_k}{K_{\text{univ}}(f)/N}$ explodes on rare traits (e.g., if $K_{\text{univ}}(f) = 2$ and $x_{k,f} = 1$, raw lift is $>80\times$ purely by chance). We place a Beta-Binomial prior centered at the Universe baseline rate $p_{\text{univ}}(f) = \frac{K_{\text{univ}}(f)}{N}$ with prior strength $m_{\text{prior}} = 10.0$ (`eb_prior_strength`):
    $$\hat{p}_{\text{EB}}(k, f) = \frac{x_{k,f} + m_{\text{prior}} \cdot p_{\text{univ}}(f)}{n_k + m_{\text{prior}}}, \qquad \text{Lift}_{\text{EB}}(k, f) = \frac{\hat{p}_{\text{EB}}(k, f)}{p_{\text{univ}}(f)}$$
    This shrinks small-sample estimates smoothly toward $1.0\times$ while preserving high-evidence lifts.
 
@@ -220,16 +220,16 @@ $$S(i, k) = \frac{w_{\text{cos}}\,S_{\text{cos}}(i, k) + w_{\text{eb}}\,S_{\text
    where $\mathbf{z}_i$ is company $i$'s L2-normalized unified feature vector and $\boldsymbol{\mu}_k$ is ICP $k$'s L2-normalized turnover-weighted centroid.
 
 2. **Empirical Bayes Log-Lift Affinity ($S_{\text{EB}}(i, k) \in [0, 1]$):**
-   For each categorical attribute $c \in \{\text{prefecture}, \text{municipality}, \text{legal\_type}, \text{primary\_kad}, \text{kad\_4digit}, \text{age\_bracket}, \text{branch\_status}\}$, let $\ell_k(c, v_c(i)) = \ln\big(\text{clip}(\text{Lift}_{\text{EB}}(k, v_c(i)), 0.25, 8.0)\big)$ be the blended ICP + portfolio Empirical Bayes log-lift for company $i$'s value $v_c(i)$. We sum the weighted log-lifts and pass through a logistic sigmoid:
+   For each categorical attribute $c$ (`prefecture_name`, `municipality_name`, `legal_type`, `primary_kad`, `kad_4digit`, `age_bracket`, `branch_status`), let $\ell_k(c, v_c(i)) = \ln\big(\text{clip}(\text{Lift}_{\text{EB}}(k, v_c(i)), 0.25, 8.0)\big)$ be the blended ICP + portfolio Empirical Bayes log-lift for company $i$'s value $v_c(i)$. We sum the weighted log-lifts and pass through a logistic sigmoid:
    $$L_{\text{EB}}(i, k) = \sum_{c} \gamma_c \,\ell_k(c, v_c(i)), \qquad S_{\text{EB}}(i, k) = \frac{1}{1 + \exp\big(-0.55\, L_{\text{EB}}(i, k)\big)}$$
 
 3. **Spatial Haversine Kernel Affinity ($S_{\text{spat}}(i) \in [0, 1]$):**
-   Using great-circle distance $d_{\text{km}}(i, j) = R_{\oplus}\arccos(\mathbf{x}_i^\top \mathbf{x}_j)$ between company $i$ and active clients $j$ with Gaussian bandwidth $\sigma_{\text{km}} = \text{spatial\_kernel\_bandwidth\_km}$, we compute:
+   Using great-circle distance $d_{\text{km}}(i, j) = R_{\oplus}\arccos(\mathbf{x}_i^\top \mathbf{x}_j)$ between company $i$ and active clients $j$ with Gaussian bandwidth $\sigma_{\text{km}} = 25\text{ km}$ (`spatial_kernel_bandwidth_km`), we compute:
    $$K_{\text{spat}}(i) = \frac{\sum_{j=1}^{N_c} w_j \exp\left(-\frac{d_{\text{km}}(i, j)^2}{2\sigma_{\text{km}}^2}\right)}{\sum_{j=1}^{N_c} w_j}, \qquad S_{\text{spat}}(i) = \min\left(1.0,\; \frac{K_{\text{spat}}(i)}{P_{95}(K_{\text{spat}})}\right)$$
-   *(If a company be among the 4% without GPS coordinates, $S_{\text{spat}}(i)$ defaults neutrally to $0.50$ so it is not unfairly discarded).*
+   *(If a company is among the 4% without GPS coordinates, $S_{\text{spat}}(i)$ defaults neutrally to $0.50$ so it is not unfairly discarded).*
 
 4. **Client Assignment & `"NO_FIT"` Outcome (`assignments.csv`):**
-   Each client $i$ is assigned to $k^*(i) = \arg\max_k S(i, k)$ with confidence score $S^*(i) = \max_k S(i, k)$, unless $S^*(i)$ falls below the dynamic threshold $\tau_{\text{no\_fit}} = \max(\text{no\_fit\_min\_score},\; Q_{0.05}(S^*_{\text{clients}}) - 0.02)$, in which case it is labeled **`"NO_FIT"`** («δεν ταιριάζει σε κανένα profile», Requirement A3).
+   Each client $i$ is assigned to $k^*(i) = \arg\max_k S(i, k)$ with confidence score $S^*(i) = \max_k S(i, k)$, unless $S^*(i)$ falls below the dynamic threshold $\tau_{\text{no-fit}} = \max(\tau_{\min},\; Q_{0.05}(S^*_{\text{clients}}) - 0.02)$, in which case it is labeled **`"NO_FIT"`** («δεν ταιριάζει σε κανένα profile», Requirement A3).
 
 ---
 

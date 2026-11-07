@@ -57,10 +57,11 @@ We support and benchmark local embedding models from `EMBEDDING_MODELS_REGISTRY`
 ## 4. Known Limitations, Failure Modes & Mitigations
 
 1. **Declarative / Noisy Secondary KADs:** Many Greek food businesses declare dozens of secondary KADs (up to 239 on a single company) that they do not actively practice.
-   - *Mitigation:* We apply smooth IDF weighting ($\text{idf\_power}=1.25$), lower base weights for secondary/auxiliary KADs ($0.75$ / $0.25$ vs $3.50$ for Primary), sublinear secondary-count damping ($n_{\text{sec}}^{-0.35}$), and **unit L2 normalization** so multi-KAD companies are neither distorted by noise nor penalized in cosine similarity (`Mean Sim = 0.4615` for 1-KAD vs `0.4747` for $\ge 20$-KAD companies).
+   - *Mitigation:* We apply smooth IDF weighting ($\gamma_{\text{idf}}=1.25$), lower base weights for secondary/auxiliary KADs ($0.75$ / $0.25$ vs $3.50$ for Primary), sublinear secondary-count damping ($n_{\text{sec}}^{-0.35}$), and **unit L2 normalization** so multi-KAD companies are neither distorted by noise nor penalized in cosine similarity (`Mean Sim = 0.4615` for 1-KAD vs `0.4747` for $\ge 20$-KAD companies).
 2. **Missing GPS Coordinates (3.99% of Universe / 975 records):**
    - *Mitigation:* Companies missing `(latitude, longitude)` receive median spatial density imputation and neutral (`0.50`) spatial kernel affinity while retaining full Prefecture/Municipality Empirical Bayes Lift scoring.
 3. **Small-Sample Statistical Artifacts in ICP Traits:**
    - *Mitigation:* Raw lift can be artificially high when a rare municipality or KAD appears 1–2 times in a cluster. We enforce **Hypergeometric exact tests** with **Benjamini-Hochberg FDR correction** ($p_{\text{FDR}} \le 0.05$) and **Empirical Bayes Shrinkage** ($m_{\text{prior}} = 10.0$) toward the Universe baseline rate.
 4. **Outlier / Atypical Clients:**
    - *Mitigation:* Clients whose maximum similarity score across all discovered ICPs falls below the dynamic threshold (`no_fit_min_score = 0.35`) are explicitly flagged as **`NO_FIT`** in `assignments.csv` (14 out of 300 clients) rather than being forced into a poor-fit cluster.
+
