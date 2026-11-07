@@ -1,23 +1,21 @@
 """
-Stage 2: Hold-Out Evaluation Harness & Baseline (`evaluate_holdout.py`)
-=======================================================================
-Implements the objective evaluation protocol from Section 8.1 of the Technical Brief:
-1. Splits the 300 clients into 80% Training Clients (240 VATs) and 20% Hidden Hold-Out
-   Clients (60 VATs) across multiple random seeds for low-variance evaluation.
-2. Implements the official ForceCRM Baseline (Section 8.1.4):
-   "επιχειρήσεις με τον ίδιο κύριο ΚΑΔ με τους πελάτες, ταξινομημένες κατά συχνότητα
-   του ΚΑΔ στο πελατολόγιο" (companies sharing a Primary KAD with the training clients,
-   sorted by the frequency of that Primary KAD in the training client list).
-3. Computes both:
-   - Exact Analytical Expected Recall@500 and Recall@2000 (accounting for random tie-breaking
-     within the boundary Primary KAD bucket), and
-   - Seeded Tie-Broken Empirical Recall@500 and Recall@2000.
-4. Provides a pluggable interface (`RankerFn`) so our upcoming ICP + Semantic Lookalike
-   engine (`src/icp_engine.py`) can be benchmarked directly against the baseline.
+Stage 2 & 4: Hold-Out Evaluation Harness & Benchmark Suite (`evaluate_holdout.py`)
+==================================================================================
+Evaluates and compares:
+1. Official ForceCRM Baseline (Section 8.1.4): Primary KAD frequency in the training client list.
+2. Our Unified Multi-Modal ICP & Lookalike Engine (`src/icp_engine.py`) with configurable
+   hyperparameters via CLI flags or `PipelineConfig` (`src/config.py`).
+
+Run with default settings:
+    .venv/bin/python evaluate_holdout.py
+
+Customize any parameter directly from the command line:
+    .venv/bin/python evaluate_holdout.py --embedding-model char-ngram-svd --splits 10 --w-eb 0.55 --w-cos 0.30 --w-spatial 0.15
 """
 
 from __future__ import annotations
 
+import argparse
 from collections import Counter
 from dataclasses import dataclass
 from typing import Callable
@@ -25,11 +23,12 @@ from typing import Callable
 import numpy as np
 import polars as pl
 
+from src.config import PipelineConfig
+from src.features import CompanyFeatureStore, build_feature_store
+from src.icp_engine import run_icp_engine
 from src.ingest import IngestedDataset, ingest_all
 
 
-# Type alias for any model ranking function:
-# Given (dataset, train_clients_df, seed) -> returns ordered list/array of candidate company_ids
 RankerFn = Callable[[IngestedDataset, pl.DataFrame, int], list[int] | np.ndarray]
 
 
@@ -54,36 +53,50 @@ def baseline_primary_kad_ranker(
     """
     Official Section 8.1.4 Baseline:
     Rank non-training-client Universe companies that share a Primary KAD with training clients,
-    ordered by the frequency of that Primary KAD among training clients (with seeded random
-    tie-breaking within the same Primary KAD frequency tier).
+    ordered by the frequency of that Primary KAD among training clients.
     """
     ec = ds.enriched_companies
     train_vats = set(train_clients["vat"].to_list())
 
-    # Identify training client rows and count primary KAD frequencies
     train_rows = ec.filter(pl.col("vat").is_in(train_vats))
     kad_counts = Counter(train_rows["primary_kad"].to_list())
 
-    # Candidate Universe: strictly exclude ALL company_id rows belonging to training client VATs
     candidates = ec.filter(~pl.col("vat").is_in(train_vats)).select(
         ["company_id", "primary_kad"]
     )
 
     cids = candidates["company_id"].to_numpy()
     kads = candidates["primary_kad"].to_list()
-
-    # Frequency of each candidate's primary KAD in the training client set (0 if not present)
     freqs = np.array([kad_counts.get(k, 0) for k in kads], dtype=np.float64)
 
-    # Filter or rank: Section 8.1.4 states companies with the same primary KAD as clients,
-    # sorted by KAD frequency in the client list.
     rng = np.random.default_rng(seed)
     tie_breaker = rng.uniform(0.0, 0.9999, size=len(cids))
 
-    # Only candidates with freq > 0 have the same primary KAD as clients; others follow with score 0
     scores = np.where(freqs > 0, freqs + tie_breaker, tie_breaker - 1.0)
     order = np.argsort(-scores)
     return cids[order].tolist()
+
+
+def make_icp_engine_ranker(
+    fs: CompanyFeatureStore,
+    cfg: PipelineConfig,
+) -> RankerFn:
+    """Wrap `run_icp_engine` into a pluggable `RankerFn` for Hold-Out evaluation."""
+
+    def _ranker(
+        ds: IngestedDataset,
+        train_clients: pl.DataFrame,
+        seed: int,
+    ) -> list[int]:
+        res = run_icp_engine(
+            ds=ds,
+            fs=fs,
+            cfg=cfg,
+            custom_clients_df=train_clients,
+        )
+        return res.all_candidates_ranked
+
+    return _ranker
 
 
 def compute_analytical_baseline_expected_recall(
@@ -92,10 +105,7 @@ def compute_analytical_baseline_expected_recall(
     holdout_cids: set[int],
     k: int,
 ) -> float:
-    """
-    Compute the exact mathematical expectation of Recall@k for the Primary KAD Baseline
-    under uniform tie-breaking within equal-frequency KAD tiers.
-    """
+    """Exact mathematical expectation of Recall@k for the Primary KAD Baseline."""
     ec = ds.enriched_companies
     train_rows = ec.filter(pl.col("vat").is_in(train_vats))
     kad_counts = Counter(train_rows["primary_kad"].to_list())
@@ -104,7 +114,6 @@ def compute_analytical_baseline_expected_recall(
         ["company_id", "primary_kad"]
     )
 
-    # Group candidates by their training-client KAD frequency (> 0 only, per baseline definition)
     tier_totals: Counter[int] = Counter()
     tier_holdouts: Counter[int] = Counter()
 
@@ -125,7 +134,6 @@ def compute_analytical_baseline_expected_recall(
             expected_hits += h_tier
             remaining_k -= n_tier
         else:
-            # Partial tier at boundary k: uniform random selection picks remaining_k / n_tier
             expected_hits += h_tier * (remaining_k / n_tier)
             remaining_k = 0
             break
@@ -142,10 +150,7 @@ def evaluate_ranker_on_holdout(
     base_seed: int = 2026,
     is_baseline: bool = False,
 ) -> HoldoutMetrics:
-    """
-    Run `n_splits` Monte Carlo 80/20 hold-out evaluations of `ranker_fn` and report
-    Recall@500 and Recall@2000.
-    """
+    """Run `n_splits` Monte Carlo 80/20 hold-out evaluations of `ranker_fn`."""
     clients = ds.clients
     ec = ds.enriched_companies
     all_client_vats = clients["vat"].to_numpy()
@@ -167,7 +172,6 @@ def evaluate_ranker_on_holdout(
 
         train_clients_df = clients.filter(pl.col("vat").is_in(train_vats))
 
-        # Ground-truth hidden client company_ids in the Universe
         holdout_cids = set(
             ec.filter(pl.col("vat").is_in(holdout_vats))["company_id"].to_list()
         )
@@ -177,7 +181,6 @@ def evaluate_ranker_on_holdout(
 
         ranked_cids = ranker_fn(ds, train_clients_df, seed)
 
-        # Verify no training client leaked into lookalike recommendations
         top_2000 = ranked_cids[:2000]
         assert len(top_2000) >= 2000, "Lookalike ranking must produce at least 2,000 rows"
         leaked = set(top_2000) & train_cids
@@ -211,12 +214,13 @@ def evaluate_ranker_on_holdout(
 
 
 def print_holdout_report(metrics_list: list[HoldoutMetrics], n_splits: int = 10) -> None:
-    """Pretty-print Hold-Out evaluation benchmark results."""
-    print("=" * 72)
-    print(f"STAGE 2: HOLD-OUT EVALUATION BENCHMARK ({n_splits}x 80/20 Splits, 60 Hidden Clients)")
-    print("=" * 72)
-    for m in metrics_list:
-        print(f"Model: {m.name}")
+    """Pretty-print Hold-Out evaluation benchmark results and improvement over baseline."""
+    print("=" * 76)
+    print(f"HOLD-OUT EVALUATION BENCHMARK ({n_splits}x 80/20 Splits, 60 Hidden Clients)")
+    print("=" * 76)
+    base_m = metrics_list[0] if metrics_list else None
+    for idx, m in enumerate(metrics_list):
+        print(f"Model [{idx+1}]: {m.name}")
         print(
             f"  - Empirical Recall@500   : {100*m.recall_at_500_mean:6.2f}% ± {100*m.recall_at_500_std:4.2f}% "
             f"(~{m.recall_at_500_mean*60:.1f} / 60 hidden clients)"
@@ -230,19 +234,76 @@ def print_holdout_report(metrics_list: list[HoldoutMetrics], n_splits: int = 10)
                 f"  - Analytical E[Recall@k] : E[R@500] = {100*m.expected_recall_500_mean:6.2f}% | "
                 f"E[R@2000] = {100*m.expected_recall_2000_mean:6.2f}%"
             )
-        print("-" * 72)
+        elif base_m is not None and idx > 0:
+            gain_500 = m.recall_at_500_mean / max(base_m.recall_at_500_mean, 1e-6)
+            gain_2000 = m.recall_at_2000_mean / max(base_m.recall_at_2000_mean, 1e-6)
+            diff_500 = 100 * (m.recall_at_500_mean - base_m.recall_at_500_mean)
+            diff_2000 = 100 * (m.recall_at_2000_mean - base_m.recall_at_2000_mean)
+            print(
+                f"  - Improvement vs Baseline: Recall@500 = {gain_500:.2f}x ({diff_500:+.2f} pp) | "
+                f"Recall@2000 = {gain_2000:.2f}x ({diff_2000:+.2f} pp)"
+            )
+        print("-" * 76)
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Benchmark ForceCRM Baseline vs ICP Lookalike Engine with customizable parameters."
+    )
+    parser.add_argument(
+        "--embedding-model",
+        type=str,
+        default="char-ngram-svd",
+        help="Embedding model key ('char-ngram-svd', 'granite-107m', 'e5-base', 'e5-small') or HF ID",
+    )
+    parser.add_argument("--splits", type=int, default=5, help="Number of 80/20 Monte Carlo splits")
+    parser.add_argument("--min-icps", type=int, default=1, help="Minimum ICP clusters")
+    parser.add_argument("--max-icps", type=int, default=6, help="Maximum ICP clusters")
+    parser.add_argument("--w-primary", type=float, default=3.5, help="Primary KAD weight")
+    parser.add_argument("--w-secondary", type=float, default=0.75, help="Secondary KAD weight")
+    parser.add_argument("--w-cos", type=float, default=0.45, help="Cosine similarity weight in lookalike score")
+    parser.add_argument("--w-eb", type=float, default=0.40, help="Empirical Bayes lift affinity weight")
+    parser.add_argument("--w-spatial", type=float, default=0.15, help="Spatial kernel weight")
+    parser.add_argument("--eb-prior", type=float, default=10.0, help="Empirical Bayes shrinkage prior strength")
+    parser.add_argument("--bandwidth-km", type=float, default=25.0, help="Spatial Gaussian kernel bandwidth (km)")
+    args = parser.parse_args()
+
+    cfg = PipelineConfig(
+        embedding_model=args.embedding_model,
+        holdout_n_splits=args.splits,
+        min_icps=args.min_icps,
+        max_icps=args.max_icps,
+        w_primary_kad=args.w_primary,
+        w_secondary_kad=args.w_secondary,
+        sim_weight_feature_cosine=args.w_cos,
+        sim_weight_eb_lift_affinity=args.w_eb,
+        sim_weight_spatial_kernel=args.w_spatial,
+        eb_prior_strength=args.eb_prior,
+        spatial_kernel_bandwidth_km=args.bandwidth_km,
+    )
+
     dataset = ingest_all()
+    feature_store = build_feature_store(dataset, cfg)
+
     baseline_metrics = evaluate_ranker_on_holdout(
         ds=dataset,
         ranker_fn=baseline_primary_kad_ranker,
         name="ForceCRM Official Baseline (Primary KAD Frequency)",
-        n_splits=10,
-        holdout_fraction=0.20,
-        base_seed=2026,
+        n_splits=cfg.holdout_n_splits,
+        holdout_fraction=cfg.holdout_fraction,
+        base_seed=cfg.random_seed,
         is_baseline=True,
     )
-    print_holdout_report([baseline_metrics], n_splits=10)
 
+    icp_ranker = make_icp_engine_ranker(feature_store, cfg)
+    icp_metrics = evaluate_ranker_on_holdout(
+        ds=dataset,
+        ranker_fn=icp_ranker,
+        name=f"Archimedes2026 ICP Engine ({cfg.embedding_model}, w_cos={cfg.sim_weight_feature_cosine}, w_eb={cfg.sim_weight_eb_lift_affinity}, w_sp={cfg.sim_weight_spatial_kernel})",
+        n_splits=cfg.holdout_n_splits,
+        holdout_fraction=cfg.holdout_fraction,
+        base_seed=cfg.random_seed,
+        is_baseline=False,
+    )
+
+    print_holdout_report([baseline_metrics, icp_metrics], n_splits=cfg.holdout_n_splits)
