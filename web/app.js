@@ -316,6 +316,14 @@ async function poll() {
     }
     if (job.status === "complete") {
       state = job;
+      // A7: lookalikes are ranked per profile too; the export keeps one global rank.
+      const perProfile = {};
+      [...state.candidates]
+        .sort((a, b) => a.rank - b.rank)
+        .forEach((c) => {
+          perProfile[c.profile_id] = (perProfile[c.profile_id] || 0) + 1;
+          c.profile_rank = perProfile[c.profile_id];
+        });
       render();
       setBusy(false);
       renderLive();
@@ -424,7 +432,7 @@ function renderCandidates() {
       .slice(page * pageSize, (page + 1) * pageSize)
       .map(
         (c) =>
-          `<tr><td>#${number(c.rank)}</td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
+          `<tr><td>#${number(c.rank)}<small>#${number(c.profile_rank)} στο ${escapeHTML(c.profile_id)}</small></td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
       )
       .join("") ||
     '<tr><td colspan="5">Δεν βρέθηκαν επιχειρήσεις για αυτά τα φίλτρα.</td></tr>';

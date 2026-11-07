@@ -79,11 +79,18 @@ def build():
     add('Model selection and cost', 'title')
     add(f'Measurements on {escape(machine.get("cpu", "the local CPU"))} with {machine.get("ram_gib", 0):.0f} GiB RAM, CPU/GPU as scheduled by Ollama', 'sub')
     add('Greek activity embeddings', 'h')
-    add('Multilingual E5-small encodes activity descriptions into 384 dimensions. The US-based Microsoft Research E5 team trained the model on multilingual web and translation pairs, then supervised retrieval data. The benchmark encoded 75 Greek foodservice descriptions and checked top-five retrieval against their four-digit activity families.')
-    table([['Embedding model','Family hit@5','ms / description','Process RSS³']] + [[r['model_path'].split('/')[-1],f'{r["family_hit_at_5"]:.1%}',f'{r["seconds_per_description"]*1000:.1f}',f'{r["rss_mb_after_encoding"]:.0f} MiB'] for r in embedding], [160,100,125,114])
-    add('³ Sampled after encoding and inclusive of Python allocations. E5-small matched E5-base on this code-family proxy and required less time and memory. Expert judgments would provide a direct test of semantic relevance.')
+    add('Multilingual E5-small (Microsoft Research, US; MIT) encodes activity descriptions into 384 dimensions. It is compared with E5-base, MiniLM and two models from the brief: granite-embedding multilingual r2 311M (IBM, US; Apache-2.0) and BGE-M3 (BAAI, China; MIT). Licences are declared in each repository\'s model-card metadata (no separate LICENSE files). Measured on challenge data: top-five retrieval of 75 Greek descriptions against their 4-digit activity family (proxy), and the real task, 5-split holdout recall with only the embedding swapped.')
+    task = {Path(r['model_path']).name: r for r in (read('embedding-recall.json')['results'] if (OUT / 'embedding-recall.json').is_file() else [])}
+    def recall(name):
+        r = task.get(name)
+        return f'{r["recall_at_500_mean"]:.1%} / {r["recall_at_2000_mean"]:.1%}' if r and r.get('status') == 'measured' else '-'
+    table([['Embedding model','Family hit@5','Recall@500 / @2000³','ms / description','Size on disk']] +
+          [[Path(r['model_path']).name, f'{r["family_hit_at_5"]:.1%}', recall(Path(r['model_path']).name),
+            f'{r["seconds_per_description"]*1000:.1f}', f'{r["model_bytes_on_disk"]/1e9:.2f} GB'] for r in embedding if r.get('status') == 'measured'],
+          [118,80,125,90,86])
+    add('³ Mean of the same 5 seeded VAT splits as the ranking audit, shipped pipeline. With 60 held-out VATs per split, differences of 2-3 points are noise. BGE-M3 and granite lead on the proxy but none beats E5-small on the task, at 4-10 times the cost, so the smallest model ships.')
     add('Local Greek narrative drafting', 'h')
-    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. Each profile fact is first written as a Greek template sentence. The LLM then rewrites one sentence at a time under a JSON schema. Numbers, percentages and names are checked against the source fact, and misleading wording is rejected. A sentence that fails twice keeps its verified template. Each displayed sentence links to its source statistic and records its author. Every description ends with a computed sentence stating profile quality, bootstrap stability and fit confidence. Generated descriptions carry an AI label.')
+    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. The LLM rewrites one templated fact sentence at a time under a JSON schema; numbers, percentages, names and wording are checked against the source fact, and a failing sentence keeps its verified template. It also picks profile titles from data-backed phrases. Computed sentences state activity mix, quality, stability and confidence. All AI text is labelled.')
     # Arial on macOS lacks U+2074, so footnote 4 uses real superscript markup.
     rows = [['LLM', Paragraph('LLM-written sentences<super>4</super>', styles['th']), 'Time per profile', 'Ollama memory']]
     for r in language:
@@ -98,7 +105,7 @@ def build():
         rows.append([r['model'], f'{written} / {total} ({written / total:.0%})', f'{latency:.1f} s',
                      f'{memory / 1024**3:.2f} GiB' if memory else '-'])
     table(rows, [140,150,104,105])
-    add('<super>4</super> Sentences that passed every deterministic check on the first or second attempt; the rest kept their verified template. All models receive the same profiles, prompt and checks. This measures grounded rewriting, not fluency. Human Greek fluency ratings remain uncollected.')
+    add('<super>4</super> Sentences passing every check within two attempts; same profiles, prompt and checks for all models. Measures grounded rewriting, not fluency; human fluency ratings remain uncollected.')
     times = [p['llm']['seconds'] for p in profiles]
     share = sum(p['llm']['llm_sentences'] for p in profiles) / sum(p['llm']['llm_sentences'] + p['llm']['template_sentences'] for p in profiles)
     add(f'In the submitted run Ministral wrote {share:.0%} of fact sentences and took {min(times):.0f}-{max(times):.0f} seconds per profile. The pass rate varies between runs with the local Ollama state (benchmark run above); failing sentences always keep their verified template. The full run took {report["performance"]["seconds"]/60:.1f} minutes with cached activity embeddings. Temperature 0, seed 42, top-k 1 and context 2,048 are fixed. Each export records model identity, prompt hash, rejected drafts and source hashes.')
@@ -108,7 +115,7 @@ def build():
 
     def footer(canvas, doc):
         canvas.setFont('CardBold',9); canvas.setFillColor(green)
-        canvas.drawString(48, A4[1]-35, 'FORCECRM   /   TECHNICAL BRIEF')
+        canvas.drawString(48, A4[1]-35, 'FORCECRM   /   MODEL & DATA CARD')
         canvas.setFont('Card',8); canvas.setFillColor(body)
         canvas.drawRightString(A4[0]-48, A4[1]-35, '7 November 2026')
         canvas.setStrokeColor(colors.HexColor('#d9e2db')); canvas.line(48,40,A4[0]-48,40)

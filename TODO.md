@@ -155,7 +155,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 ## Additional tasks from the brief, deck and judging criteria
 
 ### T6 · Check the export schema against the brief (auto-graded) · P0 · Lane F
-- **Status:** open
+- **Status:** partly done (2026-11-07). `profiles.json` now also has `confidence` (same value as `confidence_score`), and the validator asserts the brief's keys. `lookalikes.csv` keeps exactly the 5 columns, with `rationale` for «αιτιολόγηση». **Still needed: the organisers' answer on exact column and key names.**
 - **Risk:** the brief §10 names the files and fields and says they're graded automatically.
   - `lookalikes.csv` should be `profile_id, company_id, rank, score, αιτιολόγηση` (justification). Ours is `rationale`.
   - `profiles.json` should have "εμπιστοσύνη" (confidence). Ours is `confidence_score`. It should also have "χαρακτηριστικά με lift και p-value"; ours is `significant_features` (✓).
@@ -169,7 +169,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** `scripts/validate_exports.py` asserts the agreed schema exactly; README's export table matches.
 
 ### T7 · End-to-end browser test plus a durable one-command install · P0 · Lanes A + F
-- **Status:** open
+- **Status:** API-level end to end done (`scripts/e2e_server.py`, all checks pass on macOS). Still open: a visual click-through, a clean install on Windows and Linux, and the durable setup on this Mac.
 - **Work:**
   - Do the durable setup on this Mac (CLAUDE.md "Durable one-command setup"; ask the user before deleting the ICP `.venv`).
   - Verify `run.py --first-run` on a **fresh clone** on Windows and on Linux (or in a Linux container). The brief requires one command in a clean environment.
@@ -200,7 +200,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** the ratings are filled in, cited in the card (model-choice axis 1: "Greek quality measured on challenge data"), and feed T4.
 
 ### T10 · Embedding comparison with brief-listed models · P1 · Lane D/E
-- **Status:** open
+- **Status:** done (2026-11-07). Added granite r2 311M and BGE-M3 (both on the brief's list), plus a task-level metric (`scripts.benchmark embedding-recall`). None beats E5-small on 5-split recall, and the card and README are updated. Optional: Qwen3-Embedding-0.6B or jina-v5-nano.
 - **Context:** we compared E5-small, E5-base and MiniLM. MiniLM is not on the brief's list. The brief asks for at least 2 alternatives on the 4 axes and lists:
   - granite-embedding multilingual r2 (IBM, Apache)
   - BGE-M3 (MIT)
@@ -231,7 +231,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** the source and licence are declared in `docs/ENRICHMENT.md` and the card; the effect is measured; a snapshot is bundled in `open_data/` (no runtime network calls).
 
 ### T13 · Salesperson-friendly prospect view · P1 · Lane A (+E for wording)
-- **Status:** open
+- **Status:** partly done (2026-11-07): plain-Greek justifications with comma decimals, and the per-profile rank shown in the UI. Still open: the company detail card and the filtered CSV export.
 - **Work:**
   - A7 says lookalikes are ranked **per profile**. We export one global rank with the nearest profile. Add a per-profile rank in the UI, and optionally as an extra export column if T6 allows it.
   - Rewrite justifications in plain Greek, e.g. "Καφετέρια ΙΚΕ στον Δήμο Κασσάνδρας, όπως 30 πελάτες σας του προφίλ ICP-02".
@@ -240,7 +240,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** a non-technical reader can say why each of the top 10 prospects was suggested.
 
 ### T14 · Responsible-AI and card polish · P1 · Lane F
-- **Status:** open
+- **Status:** mostly done (2026-11-07). `docs/RESPONSIBLE_AI.md` is rewritten as a 1-page §9 self-assessment: the 4 questions, Annex III 5(b) trap, Art. 50, Art. 4, and Reg. 2026/1744 / 2 Dec 2027 (attributed to the brief). The PDF card header is fixed. Still open: PDF export of the AI Act page, and confirming the ΓΕΜΗ API host and licence.
 - **Work:**
   - Check `docs/RESPONSIBLE_AI.md` against the brief §9:
     - answers the 4 questions explicitly
