@@ -33,7 +33,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 
 ### Open problems on `main` (priority order)
 1. PDF model card (`docs/ForceCRM-Model-Data-Card.pdf`) still says 13/60; `scripts/build_card.py` only finds Windows/Linux fonts, so it can't rebuild on macOS. The Markdown card is fixed.
-2. ~~Greek descriptions~~ — fixed 2026-11-07 (uncommitted at time of writing): `narrative.py` now renders each fact as a Greek template, Ministral rewrites one sentence at a time (chat + few-shot), deterministic checks (numbers, %, names, banned wording/grammar patterns) reject bad rewrites, failures fall back to the template. Typically 3–5 of 6 sentences are LLM-written; ~30–50 s/profile on this Mac. Still no human fluency rating; a stronger Greek LLM (Krikri-8B, EuroLLM-9B) remains an option.
+2. ~~Greek descriptions~~ — fixed 2026-11-07 in `28f8f1b`: `narrative.py` now renders each fact as a Greek template, Ministral rewrites one sentence at a time (chat + few-shot), deterministic checks (numbers, %, names, banned wording/grammar patterns) reject bad rewrites, failures fall back to the template. Typically 3–5 of 6 sentences are LLM-written; ~30–50 s/profile on this Mac. Still no human fluency rating; a stronger Greek LLM (Krikri-8B, EuroLLM-9B) remains an option.
 3. ~~Stability/confidence not in text~~ — fixed: every description ends with a computed quality/stability(mean+p10)/confidence sentence.
 4. Profiles are almost purely geographic; ΚΑΔ/activity semantics barely appear (A1 risk for judging).
 5. Untested: browser flow (upload → profiles → export), Windows/Linux clean install, human fluency ratings.
