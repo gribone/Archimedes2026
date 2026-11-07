@@ -14,9 +14,17 @@ Business data comes from GEMI Open Data. Geocoding is powered by OpenStreetMap c
 
 The distributed Ollama model license contains Apache 2.0, which permits commercial use subject to its terms. The upstream model tree labels the weights Apache 2.0 and lacks a separate LICENSE file. [Inspected distribution license](https://ollama.com/library/ministral-3:3b/blobs/43070e2d4e53) · [Upstream tree](https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512/tree/main)
 
-Each full portfolio analysis generates a new Greek paragraph per profile with the local model. Sentences are checked against their evidence. The run records the model digest and validated response. Generation uses temperature 0, seed 42, top-k 1, a 2,048-token context and a 900-token output cap.
+Each full portfolio analysis generates a new Greek paragraph per profile with the local model. Every profile fact is first written as a Greek template sentence. The model rewrites one sentence at a time. Numbers, percentages and names are checked against the source fact, and misleading wording is rejected. A sentence that fails twice keeps its verified template. Every description ends with a computed sentence stating profile quality, bootstrap stability and fit confidence. The run records the model digest, prompt hash and rejected drafts. Generation uses temperature 0, seed 42, top-k 1, a 2,048-token context and a 220-token cap per sentence.
 
-The comparison uses Qwen3 1.7B from Alibaba in China and Gemma 3 1B from Google in the United States. These smaller models fit the test laptop. All models receive the same Greek evidence and schema. The printable card reports actual validity and latency. Both smaller alternatives generated valid output on the first shared profile in less time than Ministral. The selection favors European provenance and the distribution license. A native Greek speaker has yet to rate fluency or narrative coherence. [Qwen package license](https://ollama.com/library/qwen3:1.7b/blobs/d18a5cc71b84) · [Gemma package terms](https://ollama.com/library/gemma3:1b/blobs/dd084c7d92a3)
+The comparison uses Qwen3 1.7B from Alibaba in China and Gemma 3 1B from Google in the United States. These smaller models fit the test laptop. All models receive the same three profiles, prompt and checks.
+
+| LLM | LLM-written sentences (passed all checks) | Time per profile | Ollama memory |
+|---|---:|---:|---:|
+| Ministral 3 3B | 11/18 (61%) | 50.0 s | 2.33 GiB |
+| Qwen3 1.7B | 18/18 (100%) | 32.2 s | 1.13 GiB |
+| Gemma 3 1B | 17/18 (94%) | 16.8 s | 0.82 GiB |
+
+The smaller alternatives follow the few-shot patterns more closely, so more of their sentences pass the checks, and they run faster. All three produced correct Greek on the shared profiles. Ministral remains the default for its European provenance and Apache-licensed distribution; the brief prefers European models. A native Greek speaker has yet to rate fluency or narrative coherence. [Qwen package license](https://ollama.com/library/qwen3:1.7b/blobs/d18a5cc71b84) · [Gemma package terms](https://ollama.com/library/gemma3:1b/blobs/dd084c7d92a3)
 
 **Multilingual E5-small** produces 384-dimensional vectors from Greek NACE descriptions. Microsoft Research's E5 team used multilingual text pairs from sources including mC4, CC News, NLLB and Wikipedia, followed by supervised retrieval training. The model has approximately 118M parameters. The tested revision is `614241f622f53c4eeff9890bdc4f31cfecc418b3`. [Publisher model card](https://huggingface.co/intfloat/multilingual-e5-small)
 
@@ -28,13 +36,13 @@ The embedding comparison encoded 75 Greek foodservice descriptions. Eligible que
 
 | Encoder | Family hit@5 | Milliseconds per description | Python RSS after encoding |
 |---|---:|---:|---:|
-| E5-small | 93.2% | 59.5 | 804 MiB |
-| E5-base | 93.2% | 195.5 | 1,066 MiB |
-| Multilingual MiniLM | 89.0% | 50.3 | 827 MiB |
+| E5-small | 93.2% | 17.6 | 300 MiB |
+| E5-base | 93.2% | 87.2 | 330 MiB |
+| Multilingual MiniLM | 89.0% | 15.9 | 381 MiB |
 
-E5-small tied E5-base on this proxy while encoding descriptions about 3.3 times faster. RSS includes interpreter and allocator memory. See the benchmark runner and the local results in `outputs/embedding-comparison.json` and `outputs/llm-comparison.json`.
+E5-small tied E5-base on this proxy while encoding descriptions about 5 times faster. The hit@5 values reproduce the original author's Intel laptop measurements exactly; timings come from the Apple A18 Pro, 8 GiB machine. RSS includes interpreter and allocator memory. See the benchmark runner and the local results in `outputs/embedding-comparison.json` and `outputs/llm-comparison.json`.
 
-On an Intel Core i3-1215U with 7.7 GiB RAM, the original portfolio run took 584.5 seconds with cached embeddings and fresh Greek drafts. Each of three descriptions took 170–188 seconds. Ollama reported 2.34 GiB allocated during CPU inference. Python RSS at completion was 173 MiB. A subsequent web run with both caches populated took 31.4 seconds and produced byte-identical assignment and recommendation CSVs.
+On an Apple A18 Pro with 8 GiB RAM, the portfolio run took 153 seconds with cached embeddings and fresh Greek drafts. Each of three descriptions took 42–54 seconds. Ollama held 2.33 GiB for Ministral. Python RSS at completion was 173 MiB. (The earlier constrained-variant design took 584.5 seconds on an Intel Core i3-1215U with 7.7 GiB RAM.)
 
 | Internal evaluation on 60 held-out VATs | ForceCRM | Primary-code baseline |
 |---|---:|---:|

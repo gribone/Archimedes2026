@@ -102,7 +102,7 @@ Windows: replace `.venv/bin/python` with `.\.venv\Scripts\python.exe`.
 
 ## Model comparison
 
-On this laptop, all three tested LLMs produced grounded drafts for all three profiles. Mean generation times were 176.4 seconds for Ministral 3 3B, 30.1 seconds for Qwen3 1.7B and 19.3 seconds for Gemma 3 1B. Ministral remains the default for its European provenance and Apache-licensed distribution. Fluency still requires independent human review. E5-small tied E5-base on Greek activity-family hit@5 at 93.2% and took 59.5 ms per description versus 195.5 ms. The printable [Model & Data Card](docs/ForceCRM-Model-Data-Card.pdf) records the evaluation scope and costs. Reproduce the comparisons with the following commands. On this prepared Windows machine the Ollama CLI is also available at `.tools/ollama/ollama.exe`.
+On an Apple A18 Pro with 8 GiB RAM, all three tested LLMs produced correct Greek descriptions for all three profiles. The share of fact sentences each model wrote that passed every grounding check (the rest keep their verified template) was 61% for Ministral 3 3B, 100% for Qwen3 1.7B and 94% for Gemma 3 1B. Mean time per profile was 50.0 s, 32.2 s and 16.8 s. Ministral remains the default for its European provenance and Apache-licensed distribution. Fluency still requires independent human review. E5-small tied E5-base on Greek activity-family hit@5 at 93.2% and took 17.6 ms per description versus 87.2 ms. The printable [Model & Data Card](docs/ForceCRM-Model-Data-Card.pdf) records the evaluation scope and costs; rebuild it with `.venv/bin/python -m scripts.build_card` after `pip install reportlab` (Windows, macOS and Linux fonts are supported). Reproduce the comparisons with the following commands.
 
 ```bash
 ollama pull qwen3:1.7b

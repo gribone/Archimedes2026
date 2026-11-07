@@ -29,16 +29,17 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | `main`, default seeded split | 15/60 (25.0%) | 33/60 (55.0%) |
 | `feat/icp-engine-and-ui`, 5-fold | 14.0% | 29.7% |
 | Primary-ΚΑΔ baseline | ~1.3–1.7% | ~7–8% |
-`main` finds 3 profiles (tourist municipalities incl. Heraklion/Cyclades; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ), ~16 s per Greek description on this Mac.
+`main` finds 3 profiles (tourist municipalities incl. Heraklion/Cyclades; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ), ~40–55 s per Greek description on this Mac (full run ~2.5 min).
+LLM benchmark on this Mac (share of sentences passing grounding checks / s per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. Ministral kept as default for European provenance (team decision; switching is a one-line change of `DEFAULT_LLM`).
 
 ### Open problems on `main` (priority order)
-1. PDF model card (`docs/ForceCRM-Model-Data-Card.pdf`) still says 13/60; `scripts/build_card.py` only finds Windows/Linux fonts, so it can't rebuild on macOS. The Markdown card is fixed.
+1. ~~PDF model card stale~~ — fixed 2026-11-07: `build_card.py` supports macOS fonts and reads hardware from the benchmark files; card rebuilt from fresh runs on this Mac (`outputs/real`, `outputs/embedding-comparison.json`, `outputs/llm-comparison.json`, all gitignored). Rebuild needs `pip install reportlab` plus `models/e5-base`, `models/multilingual-minilm`, `ollama pull qwen3:1.7b gemma3:1b` for the benchmarks.
 2. ~~Greek descriptions~~ — fixed 2026-11-07 in `28f8f1b`: `narrative.py` now renders each fact as a Greek template, Ministral rewrites one sentence at a time (chat + few-shot), deterministic checks (numbers, %, names, banned wording/grammar patterns) reject bad rewrites, failures fall back to the template. Typically 3–5 of 6 sentences are LLM-written; ~30–50 s/profile on this Mac. Still no human fluency rating; a stronger Greek LLM (Krikri-8B, EuroLLM-9B) remains an option.
 3. ~~Stability/confidence not in text~~ — fixed: every description ends with a computed quality/stability(mean+p10)/confidence sentence.
 4. Profiles are almost purely geographic; ΚΑΔ/activity semantics barely appear (A1 risk for judging).
 5. Untested: browser flow (upload → profiles → export), Windows/Linux clean install, human fluency ratings.
 6. ~~AI-tools declaration~~ — fixed: README and Markdown model card list Claude Code too (PDF card still stale, see 1).
-7. Known limits the README admits: uncalibrated confidence; exploratory stats (same data clusters and tests); LLM timings in docs are from the original author's Windows laptop.
+7. Known limits the README admits: uncalibrated confidence; exploratory stats (same data clusters and tests). Docs timings are now from this Mac (Apple A18 Pro, 8 GiB).
 
 ### Local leftovers
 - `data/` in the repo = symlinks to `../Data` created for the ICP branch (untracked on `main`; safe to delete).

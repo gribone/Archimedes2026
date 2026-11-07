@@ -26,11 +26,17 @@ def build():
     report = read(f'{run}/report.json')
     embedding = read('embedding-comparison.json')['results']
     language = read('llm-comparison.json')['results']
-    for path, name in [('segoeui.ttf', 'Card'), ('segoeuib.ttf', 'CardBold')]:
-        font = Path('C:/Windows/Fonts') / path
-        if not font.exists():
-            font = Path('/usr/share/fonts/truetype/dejavu') / ('DejaVuSans.ttf' if name == 'Card' else 'DejaVuSans-Bold.ttf')
+    # Greek-capable fonts on Windows, macOS and Linux, in order of preference.
+    fonts = {'Card': ['C:/Windows/Fonts/segoeui.ttf', '/System/Library/Fonts/Supplemental/Arial.ttf',
+                      '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'],
+             'CardBold': ['C:/Windows/Fonts/segoeuib.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+                          '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']}
+    for name, candidates in fonts.items():
+        font = next((Path(c) for c in candidates if Path(c).is_file()), None)
+        if font is None:
+            raise SystemExit(f'No Greek-capable font found for {name}; tried: {candidates}')
         pdfmetrics.registerFont(TTFont(name, str(font)))
+    machine = read('llm-comparison.json').get('hardware') or {}
     green = colors.HexColor('#15594b')
     body = colors.HexColor('#283c36')
     styles = dict(title=ParagraphStyle('title', fontName='CardBold', fontSize=24, leading=30, textColor=green, spaceAfter=6),
@@ -45,7 +51,8 @@ def build():
         flow.append(Paragraph(text, styles[style]))
 
     def table(rows, widths):
-        content = [[Paragraph(escape(str(value)), styles['th' if i == 0 else 'cell']) for value in row] for i, row in enumerate(rows)]
+        content = [[value if isinstance(value, Paragraph) else Paragraph(escape(str(value)), styles['th' if i == 0 else 'cell'])
+                    for value in row] for i, row in enumerate(rows)]
         obj = Table(content, colWidths=widths, hAlign='LEFT')
         obj.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),green), ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.HexColor('#f0f5ef'),colors.white]),
             ('VALIGN',(0,0),(-1,-1),'TOP'), ('TOPPADDING',(0,0),(-1,-1),5), ('BOTTOMPADDING',(0,0),(-1,-1),5),
@@ -70,26 +77,34 @@ def build():
     add('GEMI competition data. Geocoding and venue nodes © OpenStreetMap contributors (ODbL), via Geofabrik. ForceCRM divided ELSTAT 2024 hotel nights by 2021 census residents. ELSTAT bears no responsibility for this transformation. Sales research only.')
     flow.append(PageBreak())
     add('Model selection and cost', 'title')
-    add('Measurements on the local Intel Core i3-1215U CPU with 7.7 GiB installed RAM', 'sub')
+    add(f'Measurements on {escape(machine.get("cpu", "the local CPU"))} with {machine.get("ram_gib", 0):.0f} GiB RAM, CPU/GPU as scheduled by Ollama', 'sub')
     add('Greek activity embeddings', 'h')
     add('Multilingual E5-small encodes activity descriptions into 384 dimensions. The US-based Microsoft Research E5 team trained the model on multilingual web and translation pairs, then supervised retrieval data. The benchmark encoded 75 Greek foodservice descriptions and checked top-five retrieval against their four-digit activity families.')
     table([['Embedding model','Family hit@5','ms / description','Process RSS³']] + [[r['model_path'].split('/')[-1],f'{r["family_hit_at_5"]:.1%}',f'{r["seconds_per_description"]*1000:.1f}',f'{r["rss_mb_after_encoding"]:.0f} MiB'] for r in embedding], [160,100,125,114])
     add('³ Sampled after encoding and inclusive of Python allocations. E5-small matched E5-base on this code-family proxy and required less time and memory. Expert judgments would provide a direct test of semantic relevance.')
     add('Local Greek narrative drafting', 'h')
-    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. The LLM rewrites one templated fact sentence at a time under a JSON schema; numbers, percentages and names are checked against the source fact, and failing sentences keep their verified template. Each displayed sentence links to its source statistic and records its author. Generated descriptions carry an AI label.')
-    rows = [['LLM','Valid drafts / attempted','Generation time⁴']]
+    add('Mistral AI in France developed Ministral 3 3B Instruct. The Q4_K_M package occupies approximately 3 GB. Full corpus provenance remains undisclosed. Each profile fact is first written as a Greek template sentence. The LLM then rewrites one sentence at a time under a JSON schema. Numbers, percentages and names are checked against the source fact, and misleading wording is rejected. A sentence that fails twice keeps its verified template. Each displayed sentence links to its source statistic and records its author. Every description ends with a computed sentence stating profile quality, bootstrap stability and fit confidence. Generated descriptions carry an AI label.')
+    # Arial on macOS lacks U+2074, so footnote 4 uses real superscript markup.
+    rows = [['LLM', Paragraph('LLM-written sentences<super>4</super>', styles['th']), 'Time per profile', 'Ollama memory']]
     for r in language:
-        attempts = r.get('profiles', [])
-        valid = [a for a in attempts if a['valid_grounded_output']]
-        latency = sum(a['generation_seconds'] for a in valid) / len(valid) if valid else None
-        rows.append([r['model'],f'{len(valid)} / {len(attempts)}',f'{latency:.1f} s' if latency is not None else 'No valid draft'])
-    table(rows, [165,166,168])
-    add('⁴ Each model receives the same profiles and evidence. Times are means over valid drafts and retain the original generation latency for cached output. The sample measures schema completion and grounding under the laptop load at run time. Human Greek fluency ratings remain uncollected.')
+        attempts = [a for a in r.get('profiles', []) if a['valid_grounded_output']]
+        if r.get('status') != 'measured' or not attempts:
+            rows.append([r['model'], 'Unavailable', '-', '-'])
+            continue
+        written = sum(a['llm_sentences'] for a in attempts)
+        total = written + sum(a['template_sentences'] for a in attempts)
+        latency = sum(a['generation_seconds'] for a in attempts) / len(attempts)
+        memory = r.get('ollama_resident_bytes')
+        rows.append([r['model'], f'{written} / {total} ({written / total:.0%})', f'{latency:.1f} s',
+                     f'{memory / 1024**3:.2f} GiB' if memory else '-'])
+    table(rows, [140,150,104,105])
+    add('<super>4</super> Sentences that passed every deterministic check on the first or second attempt; the rest kept their verified template. All models receive the same profiles, prompt and checks. This measures grounded rewriting, not fluency. Human Greek fluency ratings remain uncollected.')
     times = [p['llm']['seconds'] for p in profiles]
-    add(f'Ministral generated all three final descriptions in {min(times):.0f}-{max(times):.0f} seconds per profile. Ollama reported 2.34 GiB allocated during CPU inference. The full run took {report["performance"]["seconds"]/60:.1f} minutes with cached activity embeddings. Temperature 0, seed 42, top-k 1 and context 2,048 are fixed. Each export records model identity and source hashes.')
+    share = sum(p['llm']['llm_sentences'] for p in profiles) / sum(p['llm']['llm_sentences'] + p['llm']['template_sentences'] for p in profiles)
+    add(f'In the submitted run Ministral wrote {share:.0%} of fact sentences and took {min(times):.0f}-{max(times):.0f} seconds per profile. The full run took {report["performance"]["seconds"]/60:.1f} minutes with cached activity embeddings. Temperature 0, seed 42, top-k 1 and context 2,048 are fixed. Each export records model identity, prompt hash, rejected drafts and source hashes.')
     add('Licenses and reproducibility', 'h')
     add('The <a href="https://ollama.com/library/ministral-3:3b/blobs/43070e2d4e53" color="#15594b">distributed Ministral license</a> is Apache 2.0 and allows commercial use under its terms. The <a href="https://huggingface.co/intfloat/multilingual-e5-small/tree/main" color="#15594b">E5-small weight repository</a> declares MIT in its metadata and lacks a standalone license file. The <a href="https://github.com/microsoft/unilm/blob/master/LICENSE" color="#15594b">official E5 code repository</a> supplies the MIT license. The weight-specific licensing evidence is limited to the publisher’s declaration.')
-    add('OpenAI Codex assisted implementation, documentation and testing. The repository includes source links, an EU AI Act self-assessment, benchmark commands and the temporary Colab workflow.')
+    add('OpenAI Codex assisted implementation, documentation and testing. Claude Code (Anthropic) assisted code review, holdout verification, setup fixes, the grounded per-sentence narration and documentation. The repository includes source links, an EU AI Act self-assessment, benchmark commands and the temporary Colab workflow.')
 
     def footer(canvas, doc):
         canvas.setFont('CardBold',9); canvas.setFillColor(green)

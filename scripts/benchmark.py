@@ -5,8 +5,24 @@ import os
 from pathlib import Path
 import time
 import gc
+import platform
+import subprocess
 import numpy as np
 import psutil
+
+
+def hardware():
+    """CPU and RAM of the machine running the benchmark, recorded with every result file."""
+    cpu = platform.processor()
+    try:
+        if platform.system() == 'Darwin':
+            cpu = subprocess.run(['sysctl', '-n', 'machdep.cpu.brand_string'], capture_output=True, text=True).stdout.strip() or cpu
+        elif platform.system() == 'Linux':
+            cpu = next(l.split(':', 1)[1].strip() for l in open('/proc/cpuinfo') if l.startswith('model name'))
+    except Exception:
+        pass
+    return {'cpu': cpu or platform.machine(), 'ram_gib': psutil.virtual_memory().total / 1024**3,
+            'platform': platform.platform()}
 
 
 def embeddings(args):
@@ -45,7 +61,7 @@ def embeddings(args):
         except Exception as exc:
             row.update(status='unavailable', error=str(exc))
         results.append(row)
-    return {'kind': 'embedding', 'limitations': 'Weak code-family labels are not a Greek human relevance benchmark. RSS includes Python and prior allocations, not isolated model peak memory.', 'results': results}
+    return {'kind': 'embedding', 'hardware': hardware(), 'limitations': 'Weak code-family labels are not a Greek human relevance benchmark. RSS includes Python and prior allocations, not isolated model peak memory.', 'results': results}
 
 
 def llms(args):
@@ -61,19 +77,31 @@ def llms(args):
         if model not in available:
             results.append({'model': model, 'status': 'unavailable', 'valid_output_rate': None, 'profiles': []})
             continue
-        rows = []
+        rows, resident = [], None
         for profile in profiles:
             start = time.perf_counter()
             try:
                 result = narrate(profile, args.data, model=model)
+                llm = result['llm']
                 rows.append({'profile_id': profile['profile_id'], 'valid_grounded_output': True,
-                             'generation_seconds': result['llm']['seconds'], 'wall_seconds': time.perf_counter()-start,
-                             'description': result['description'], 'digest': result['llm']['digest'],
+                             'llm_sentences': llm['llm_sentences'], 'template_sentences': llm['template_sentences'],
+                             'llm_calls': llm['calls'], 'rejected_drafts': len(llm['rejected_drafts']),
+                             'generation_seconds': llm['seconds'], 'wall_seconds': time.perf_counter()-start,
+                             'description': result['description'], 'digest': llm['digest'],
                              'human_greek_fluency_1_to_5': None, 'human_coherence_1_to_5': None})
             except Exception as exc:
                 rows.append({'profile_id': profile['profile_id'], 'valid_grounded_output': False, 'error': str(exc)})
-        results.append({'model': model, 'status': 'measured', 'valid_output_rate': sum(r['valid_grounded_output'] for r in rows)/max(1,len(rows)), 'profiles': rows})
-    return {'kind': 'llm', 'limitations': 'Greek phrasing is constrained to verified templates. Fluency and ordering still require blinded human review. Cached generations retain original latency. Missing models count as unavailable, not quality failures.', 'results': results}
+            with httpx.Client(trust_env=False, timeout=10) as client:
+                loaded = client.get('http://127.0.0.1:11434/api/ps').json().get('models', [])
+            resident = next((m.get('size') for m in loaded if m.get('name') == model), resident)
+        valid = [r for r in rows if r['valid_grounded_output']]
+        written = sum(r['llm_sentences'] for r in valid)
+        total = written + sum(r['template_sentences'] for r in valid)
+        results.append({'model': model, 'status': 'measured',
+                        'valid_output_rate': len(valid)/max(1, len(rows)),
+                        'llm_sentence_share': written/total if total else None,
+                        'ollama_resident_bytes': resident, 'profiles': rows})
+    return {'kind': 'llm', 'hardware': hardware(), 'limitations': 'Each fact sentence is rewritten separately and must pass deterministic number, percentage, name and wording checks; failing sentences keep their verified template. llm_sentence_share measures how often a model passes those checks, not fluency. Fluency still requires blinded human review. Missing models count as unavailable, not quality failures.', 'results': results}
 
 
 def main():
