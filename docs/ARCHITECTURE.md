@@ -4,25 +4,36 @@ How the app turns a customer list (ΑΦΜ + revenue) into customer profiles (ICP
 
 ## 1. Overview
 
+The analysis is a chain of **named stages** (`forcecrm/stages/`), one per requirement of the brief:
+
 ```mermaid
 flowchart LR
-    XL[Customer Excel<br/>ΑΦΜ + τζίρος] --> P[read_portfolio]
-    CSV[3 GEMI CSVs<br/>24,424 venues] --> L[load_universe]
-    OD[open_data/<br/>OSM snapshot + ELSTAT] --> E[enrich]
-    L --> F[build_features<br/>E5 embeddings + geo + legal + age]
-    E --> F
-    P --> C[fit_portfolio<br/>revenue-weighted spherical k-means, k=1..6]
-    F --> C
-    C --> S[stability<br/>20 VAT bootstraps]
-    C --> V[significant_features<br/>Fisher + BH]
-    V --> N[narrate<br/>local LLM via Ollama]
-    S --> N
-    C --> R[rank_candidates<br/>similarity × market affinity]
-    R --> O[(profiles.json<br/>assignments.csv<br/>lookalikes.csv<br/>report.json)]
-    N --> O
-    S --> O
+    subgraph U[Universe side: independent of the customer list]
+        LO[load<br/>GEMI CSVs via SQLite] --> EN[enrich · X2/X3<br/>OSM match + ELSTAT tourism]
+        LO --> RE[represent · A1<br/>E5 embeddings + geo + legal + age]
+        EN --> RE
+    end
+    XL[Customer Excel<br/>ΑΦΜ + τζίρος] --> DI
+    subgraph P[Portfolio side]
+        DI[discover · A2/A3<br/>revenue-weighted spherical k-means,<br/>assignment with the same metric]
+        DI --> ST[stability · A5<br/>20 VAT bootstraps]
+        DI --> EV[evidence · A4<br/>Fisher + BH]
+        ST --> PR[profiles<br/>every reported number]
+        EV --> PR
+        EV --> RA[rank · A7<br/>similarity × market affinity]
+        DI --> RA
+        PR --> NA[narrate · A6<br/>local LLM, fact-checked]
+        DI ~~~ EVL[evaluate<br/>20% VAT holdout]
+    end
+    RE --> DI
+    RE --> EVL
+    RA --> O[(lookalikes.csv<br/>assignments.csv<br/>profiles.json<br/>report.json)]
+    NA --> O
+    DI --> O
     O --> UI[Browser UI<br/>FastAPI on 127.0.0.1:8000]
 ```
+
+Ranking reads only the statistical traits, never the AI text, so it is computed **before** the LLM runs. `narrate` is the only stage whose output is not bit-reproducible across machines (§4). How stages are run and cached is in §2.0.
 
 Everything runs on the laptop. The only AI components are:
 - **multilingual-e5-small** (sentence-transformers), which embeds Greek activity (ΚΑΔ) descriptions
@@ -43,11 +54,42 @@ No external AI service is called at runtime. The only outbound call is an **opt-
 | `forcecrm/titles.py` | Grounded profile titles: the LLM picks from data-backed phrases (A6) |
 | `forcecrm/live.py` | Opt-in live ΓΕΜΗ Open Data status check of top prospects |
 | `forcecrm/affinity.py` | Shrunken market-concentration signal used in ranking (A7) |
-| `forcecrm/pipeline.py` | Orchestrates everything, builds the exports, runs the internal holdout test |
+| `forcecrm/stages/` | The stage graph (`definitions.py`) and the small runner that resolves, caches and times stages (`engine.py`) (§2.0) |
+| `forcecrm/pipeline.py` | Profile fitting, ranking and holdout functions; `run_analysis` resolves the stages and assembles `report.json`; `export_result` writes the files |
 | `forcecrm/server.py` + `web/` | FastAPI backend and plain-JS UI (A8) |
 | `scripts/` | CLI analysis, export validator, benchmarks, model-card builder |
 
 ## 2. Pipeline, step by step
+
+### 2.0 Stages, cache keys and re-runs (`forcecrm/stages/`)
+Each stage is a function of the artifacts of the stages it needs and of the run parameters it declares. Nothing is changed in place: for example `enrich` returns a new companies table carrying the tourism band instead of adding a column to the shared one.
+
+| Stage | Requirement | Needs | Parameters in its key |
+|---|---|---|---|
+| `load` | data | none | CSV SHA-256, library versions |
+| `enrich` | X2/X3 | load | + open-data snapshot SHA-256 |
+| `represent` | A1 | load, enrich | weights, demo, embedding-model files, library versions |
+| `discover` | A2/A3 | enrich, represent | portfolio SHA-256 |
+| `stability` | A5 | represent, discover | bootstrap count |
+| `evidence` | A4 | load, enrich, represent, discover | portfolio SHA-256 |
+| `profiles` | A2–A5 | the six above | portfolio SHA-256 |
+| `rank` | A7 | enrich, represent, discover, evidence | portfolio SHA-256 |
+| `narrate` | A6 | profiles | LLM name (+ model digest per profile) |
+| `evaluate` | holdout | enrich, represent | portfolio SHA-256 |
+
+**Cache key (Merkle style):** `sha256(stage name, SHA-256 of the stage's source files, its parameter values, the keys of the stages it needs)`. A key changes exactly when something the stage can see changes: input data, a parameter, or the code. Only the root inputs are hashed (CSVs, portfolio, open-data snapshot, embedding-model file list); large arrays never are.
+
+**Storage:** `.cache/stages/<stage>-<key>.pkl` (gitignored), written atomically. Only this module writes or reads these files, on the local machine, and only the 4 most recent artifacts per stage are kept. `narrate` is cached **per profile** in `.cache/stages/narrate-<key>.json`, keyed on that profile's facts, the model name and its Ollama digest, so unchanged profiles keep their text and re-pulling a model invalidates it.
+
+**What re-runs:**
+- Same inputs: every stage comes from the cache.
+- New customer list: `load`, `enrich` and `represent` are reused.
+- Custom weights: `load` and `enrich` are reused; the default-weights comparison in `evaluate` reuses the cached default `represent`.
+- Text only (prompt, model or `narrative.py` changed): only `narrate` runs.
+
+`report.json` records each stage's key prefix, status (`computed`, `cached`, or `partial` when some profiles' text was reused) and seconds under `stages`.
+
+**CLI:** `scripts.analyze --until-stage <stage>` stops after that stage and prints the stage log. `--from-stage <stage>` recomputes that stage and every stage downstream of it, ignoring cached artifacts; `--from-stage narrate` regenerates the text. `--no-cache` keeps everything in memory.
 
 ### 2.1 Load and validate (`data.py`)
 - The universe is read through the embedded SQLite store (§2.12). It imports the CSVs once and re-imports only when their SHA-256 changes; `FORCECRM_DB=0` reads the CSVs directly. Both paths return identical frames (tested).
@@ -222,6 +264,7 @@ A `--sweep` over partial centring (α = 0.5 / 0.8) and lower activity weights (0
 | Embeddings | Same local model files, CPU inference, cached per model/text fingerprint |
 | Thread-count effects in linear algebra | BLAS limited to 2 threads (`threadpool_limits`); torch to ≤ 4 threads |
 | The LLM | **Not used in ranking at all.** It only writes the description text |
+| Stage cache | A cached artifact is the pickled result of the same function on the same keyed inputs. `tests/test_stages.py` checks that two runs give identical stage keys and that cached and uncached runs give identical lookalikes, assignments and profiles |
 
 ### What changes the recommendations (by design)
 - **Any change to the customer list.** Adding or removing a customer, or changing a revenue figure, refits the profiles and the concentration signal, so ranks can shift. This is intended: the recommendations describe *this* portfolio.
@@ -230,7 +273,7 @@ A `--sweep` over partial centring (α = 0.5 / 0.8) and lower activity weights (0
 ### Where small differences are possible
 - **Different hardware, OS or library versions** can change floating-point results in the embeddings or matrix maths in the last decimal places. That can swap two candidates whose scores are almost tied. Pinned package versions (`requirements*.txt`) and the embedding cache keep this rare. The aggregate results (profiles, recall) should not change.
 - **Custom weights:** a run with non-default weights is a different model by design. Its recommendations differ, and `report.json` flags it.
-- **Descriptions only:** temperature 0, seed 42 and top-k 1 make the text repeatable on the same machine with the same Ollama and model digest. In practice the wording can also differ between runs on the same machine, depending on Ollama's state, e.g. whether the model was already loaded by the title step. On 2026-11-07, the same profiles got 3–4 versus 6 of 6 sentences passing the checks. Across machines, GPU/CPU kernels can produce different wording. Every number in the text is still checked against the data, so wording may vary but facts cannot. `profiles.json` records the model digest, prompt hash and rejected drafts for auditing.
+- **Descriptions only:** temperature 0, seed 42 and top-k 1 make the text repeatable on the same machine with the same Ollama and model digest. In practice the wording can also differ between runs on the same machine, depending on Ollama's state, e.g. whether the model was already loaded by the title step. On 2026-11-07, the same profiles got 3–4 versus 6 of 6 sentences passing the checks. Across machines, GPU/CPU kernels can produce different wording. Every number in the text is still checked against the data, so wording may vary but facts cannot. Since T3, the text is cached per profile (§2.0), so re-running on the same inputs shows the same wording until `--from-stage narrate` regenerates it. `profiles.json` records the model digest, prompt hash and rejected drafts for auditing.
 
 ### How to check it yourself
 Run the analysis twice and compare the files:

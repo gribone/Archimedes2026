@@ -10,14 +10,11 @@ import pandas as pd
 import psutil
 from threadpoolctl import threadpool_limits
 
-from .clustering import discover, stability
-from .data import FILES, load_universe
-from .evidence import significant_features, portfolio_traits, activity_mix
-from .features import build_features, is_custom, normalize_weights
-from .narrative import narrate, DEFAULT_LLM, feature_phrase, greek_number, short_activity
-from .titles import activity_families, make_title
+from .clustering import discover
+from .data import FILES
+from .features import is_custom, normalize_weights
+from .narrative import DEFAULT_LLM, feature_phrase, greek_number, short_activity
 from .affinity import market_affinity
-from .enrichment import enrich
 
 
 def fit_portfolio(X, companies, portfolio):
@@ -109,78 +106,58 @@ def evaluate_holdout(X, companies, portfolio, primary_codes, seed=2026):
     return result
 
 
+def fingerprints(root: Path, portfolio, demo=False, model_path=None, weights=None):
+    """The root inputs of the stage graph, hashed once. Every cache key chains from these."""
+    from importlib import metadata
+    from . import db
+    from .enrichment import SNAPSHOT
+
+    def version(package):
+        try:
+            return metadata.version(package)
+        except metadata.PackageNotFoundError:
+            return None
+
+    if demo:
+        embedding = 'demo-lexical'
+    else:
+        path = Path(model_path or Path(root) / 'models' / 'e5-small')
+        embedding = [(str(f.relative_to(path)), f.stat().st_size, f.stat().st_mtime_ns)
+                     for f in sorted(path.rglob('*')) if f.is_file()] if path.is_dir() else 'missing'
+    return {'data_sha256': db.source_hashes(root),
+            'portfolio_sha256': hashlib.sha256(portfolio.to_csv(index=False).encode()).hexdigest(),
+            'open_data_sha256': {f.name: db.file_sha256(f) for f in sorted(SNAPSHOT.iterdir()) if f.is_file()},
+            'embedding_fingerprint': embedding,
+            'libraries': {p: version(p) for p in ('numpy', 'pandas', 'scikit-learn', 'scipy',
+                                                  'sentence-transformers', 'torch')} | {'python': platform.python_version()},
+            'weights': normalize_weights(weights), 'demo': bool(demo)}
+
+
+def make_runner(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=lambda message: None,
+                bootstrap=20, model_path=None, weights=None, cache=True, force=()):
+    """A stage runner for one analysis. `cache=False` keeps artifacts in memory only;
+    `force` names stages to recompute even when a cached artifact exists."""
+    from .stages import Runner, STAGES
+    params = fingerprints(root, portfolio, demo, model_path, weights) | {'model': model, 'bootstrap': bootstrap}
+    return Runner(STAGES, params, {'root': Path(root), 'portfolio': portfolio, 'model_path': model_path},
+                  Path(root) / '.cache' / 'stages' if cache else None, frozenset(force), progress)
+
+
 @threadpool_limits.wrap(limits=2, user_api='blas')
 def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=lambda message: None,
-                 bootstrap=20, evaluate=True, model_path=None, weights=None):
+                 bootstrap=20, evaluate=True, model_path=None, weights=None, cache=True, force=()):
     start = time.perf_counter()
-    progress('Reading and validating the business universe')
-    c, a, d, audit = load_universe(root)
-    progress('Building activity embeddings and geographic features')
-    feature_start = time.perf_counter()
-    weights = normalize_weights(weights)
-    X, traits, primary, feature_meta = build_features(c, a, d, root, demo, model_path, weights)
-    progress('Linking OpenStreetMap venues and municipal hotel statistics')
-    enrichment, coverage = enrich(c)
-    c['hotel_band'] = enrichment.hotel_band
-    for values, venue in zip(traits, enrichment.itertuples()):
-        if pd.notna(venue.hotel_band):
-            values.add(f'hotel_band:{venue.hotel_band}')
-        if venue.status == 'matched':
-            values.add(f'osm_amenity:{venue.amenity}')
-    feature_seconds = time.perf_counter() - feature_start
-    progress('Discovering 1–6 revenue-weighted customer profiles')
-    fit = fit_portfolio(X, c, portfolio)
-    indices, labels, centers = fit['indices'], fit['labels'], fit['centers']
-    masks = []
-    for j in range(len(centers)):
-        mask = np.zeros(len(c), dtype=bool)
-        mask[indices[labels == j]] = True
-        masks.append(mask)
-    progress('Measuring bootstrap stability and statistical evidence')
-    stable, ari = stability(X[indices], fit['weights'], fit['vats'], centers, labels, repetitions=bootstrap)
-    evidence, tests = significant_features(c, traits, masks, d)
-    mixes = activity_mix(c, primary, masks, d)
-    shared_traits, shared_tests = portfolio_traits(c, traits, set(portfolio.vat), d)
-    revenue_map = portfolio.set_index('vat').revenue
-    branches = c[c.vat.isin(portfolio.vat)].vat.value_counts()
-    activity_names = dict(zip(d.activity_id, d.description))
-    profiles = []
-    for j, mask in enumerate(masks):
-        members = c[mask]
-        allocated_revenue = sum(revenue_map[v] / branches[v] for v in members.vat)
-        distance = fit['distances'][mask, j]
-        # A relative fit score, not a calibrated probability of purchase.
-        confidence = float(np.mean(np.exp(-distance / max(fit['radii'][j], 1e-6))))
-        profile = {'profile_id': f'ICP-{j + 1:02}', 'title': f'Προφίλ {j + 1}',
-                   'customer_count': int(members.vat.nunique()), 'venue_count': len(members),
-                   'revenue_share': float(allocated_revenue / portfolio.revenue.sum()),
-                   'stability': stable[j]['mean'], 'stability_detail': stable[j], 'confidence_score': confidence,
-                   'confidence': confidence,  # brief §10 name ("εμπιστοσύνη"); same value as confidence_score
-                   'quality': 'strong' if stable[j]['mean'] >= .75 and len(evidence[j]) >= 2 else 'limited',
-                   'significant_features': evidence[j], 'activity_mix': mixes[j],
-                   'acceptance_cosine_distance': float(fit['radii'][j])}
-        positions = np.flatnonzero(mask)
-        profile['activity_families'] = activity_families([primary[i] for i in positions], members.vat, activity_names)
-        progress(f'Writing grounded Greek title and description {j + 1}/{len(centers)}')
-        profile.update(make_title(profile, root, model=model, demo=demo))
-        profile.update(narrate(profile, root, model=model, demo=demo))
-        profiles.append(profile)
-    ids = np.array([f'ICP-{i + 1:02}' for i in fit['nearest']], dtype=object)
-    ids[~fit['accepted']] = 'NONE'
-    assignments = pd.DataFrame({'company_id': c.company_id, 'profile_id': ids, 'score': fit['similarity']})
-    progress('Ranking non-customer businesses')
-    lookalikes = rank_candidates(c, fit, set(portfolio.vat), traits, profiles, primary_codes=primary)
-    validation = None
-    if evaluate:
-        progress('Running an internal 20% VAT holdout against the primary-code baseline')
-        validation = evaluate_holdout(X, c, portfolio, primary)
-        if is_custom(weights) and 'metrics' in validation:
-            # Same holdout with the validated default weights, so the user sees the accuracy trade-off.
-            progress('Re-running the holdout with default weights for comparison')
-            default_X = build_features(c, a, d, root, demo, model_path)[0]
-            default = {m['k']: m['recall'] for m in evaluate_holdout(default_X, c, portfolio, primary)['metrics']}
-            for metric in validation['metrics']:
-                metric['default_weights_recall'] = default.get(metric['k'])
+    runner = make_runner(root, portfolio, demo, model, progress, bootstrap, model_path, weights, cache, force)
+    weights = runner.params['weights']
+    # Deterministic stages first; ranking needs no AI text, so it is ready before the LLM starts.
+    universe, enriched, represented = runner.get('load'), runner.get('enrich'), runner.get('represent')
+    c = enriched['companies']
+    fit = runner.get('discover')['fit']
+    stable, found = runner.get('stability'), runner.get('evidence')
+    assignments, lookalikes = runner.get('discover')['assignments'], runner.get('rank')
+    profiles = runner.get('narrate')
+    validation = runner.get('evaluate') if evaluate else None
+    feature_meta = represented['meta']
     warnings = []
     if is_custom(weights):
         shares = ', '.join(f'{name} {value:.0%}' for name, value in weights.items())
@@ -193,27 +170,30 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
         warnings.append('Fewer than 2,000 eligible distinct prospective VATs exist. Export cannot meet the candidate minimum.')
     if feature_meta['missing_primary_venues']:
         warnings.append(f"{feature_meta['missing_primary_venues']} venues have no usable primary activity embedding.")
-    report = {'demo': demo, 'data_audit': audit, 'portfolio_customers': len(portfolio),
-              'portfolio_venues': len(indices), 'portfolio_revenue': float(portfolio.revenue.sum()),
+    seconds = {r.stage: r.seconds for r in runner.records}
+    report = {'demo': demo, 'data_audit': universe['audit'], 'portfolio_customers': len(portfolio),
+              'portfolio_venues': len(fit['indices']), 'portfolio_revenue': float(portfolio.revenue.sum()),
               'profile_count': len(profiles), 'candidate_count': len(lookalikes),
               'rejected_venues': int((~fit['accepted']).sum()), 'feature_configuration': feature_meta,
-              'cluster_selection': fit['diagnostics'], 'bootstrap_ari': ari, 'hypotheses_tested': tests,
-              'portfolio_traits': shared_traits, 'portfolio_traits_tested': shared_tests,
+              'cluster_selection': fit['diagnostics'], 'bootstrap_ari': stable['ari'], 'hypotheses_tested': found['tests'],
+              'portfolio_traits': found['portfolio_traits'], 'portfolio_traits_tested': found['portfolio_traits_tested'],
               'statistics_note': 'Exploratory Fisher tests after data-driven clustering; global BH q≤0.05, ≥5 VAT support, lift≥1.2. Not independent confirmatory inference.',
               'confidence_note': 'Similarity and fit confidence are not probabilities of conversion or creditworthiness.',
               'rank_note': 'Global rank, one representative venue per VAT; profile_id indicates nearest profile, including explicitly marked exploratory candidates outside threshold.',
               'validation': validation, 'warnings': warnings, 'seed': 42,
-              'input_sha256': {f: hashlib.sha256((root / f).read_bytes()).hexdigest() for f in FILES},
-              'portfolio_sha256': hashlib.sha256(portfolio.to_csv(index=False).encode()).hexdigest(),
-              'performance': {'seconds': time.perf_counter() - start, 'feature_seconds': feature_seconds,
+              'input_sha256': {f: runner.params['data_sha256'][f] for f in FILES},
+              'portfolio_sha256': runner.params['portfolio_sha256'],
+              'performance': {'seconds': time.perf_counter() - start,
+                              'feature_seconds': seconds.get('enrich', 0) + seconds.get('represent', 0),
                               'rss_mb_at_finish': psutil.Process().memory_info().rss / 1024 ** 2,
                               'platform': platform.platform(), 'processor': platform.processor()},
+              'stages': runner.summary(), 'stage_notes': runner.notes,
               'sources': ['GEMI Open Data — competition-only data', 'Geocoding powered by OpenStreetMap contributors, ODbL']}
-    report['enrichment'] = coverage
+    report['enrichment'] = enriched['coverage']
     report['sources'] += ['OpenStreetMap contributors via Geofabrik (ODbL)', 'ELSTAT: municipal hotel nights 2024 and resident population 2021. ForceCRM calculated the ratios. ELSTAT bears no responsibility for the transformation.']
     preview = lookalikes.merge(c[['company_id', 'vat', 'company_name_el', 'city', 'latitude', 'longitude']], on='company_id')
     return {'profiles': profiles, 'assignments': assignments, 'lookalikes': lookalikes, 'report': report,
-            'enrichment': enrichment, 'preview': preview.replace({np.nan: None}).to_dict('records')}
+            'enrichment': enriched['enrichment'], 'preview': preview.replace({np.nan: None}).to_dict('records')}
 
 
 def export_result(result, directory):

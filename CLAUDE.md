@@ -44,9 +44,9 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Task | Command | Notes |
 |---|---|---|
 | Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
-| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min here, including 3 LLM titles + descriptions (faster when Ollama keeps the model loaded) |
+| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min cold (mostly the 3 LLM titles + descriptions); ~2 s when every stage is cached (`.cache/stages/`). `--from-stage <s>` recomputes `s` and everything after it, `--until-stage <s>` stops there, `--no-cache` skips the disk cache. `--model` defaults to `DEFAULT_LLM` |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
-| Tests | `.venv/bin/python -m pytest -q` | 56 pass |
+| Tests | `.venv/bin/python -m pytest -q` | 63 pass |
 | End-to-end (running server) | `.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio <xlsx> [--mode full\|weights\|restore]` | Drives the same HTTP calls as the browser. The server reads CSVs and `models/e5-small` from the repo root |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
@@ -79,7 +79,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Determinism:** the same inputs give byte-identical `lookalikes.csv` and `assignments.csv`, verified across separate runs.
 
 ### Working conventions for agents
-- **Ranking or features:** after any change to `features.py`, `clustering.py`, `affinity.py` or `pipeline.rank_candidates`, run `audit_ranking --with-tourism`. Compare against 21.3% / 51.3%; with 60 held-out VATs per split, ±2–3 points is noise. Check that `lookalikes.csv` is unchanged when you didn't intend a ranking change.
+- **Ranking or features:** after any change to `features.py`, `clustering.py`, `affinity.py`, `pipeline.rank_candidates` or `forcecrm/stages/`, run `audit_ranking --with-tourism`. Compare against 21.3% / 51.3%; with 60 held-out VATs per split, ±2–3 points is noise. Check that `lookalikes.csv` is unchanged when you didn't intend a ranking change.
 - **Any change:** run `pytest`, then a full `scripts.analyze` and `scripts.validate_exports` (must `PASS`).
 - **Greek text:** wording rules live in `narrative.py`: `BANNED`, `BAD_PATTERNS`, `check_sentence`, few-shot `EXAMPLES`.
   - Every number in a sentence must come from its source fact.

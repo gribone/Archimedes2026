@@ -89,8 +89,12 @@ Each analysis writes `outputs/<run-id>/`:
 
 CSV outputs use comma delimiters, dot decimals, UTF-8 BOM, and standard CSV quoting. Input CSVs use semicolons and comma decimals. Rankings include all eligible prospects, therefore exceed 2,000 unless fewer exist. `rank` is **global**; filtering a profile retains that global rank. The nearest profile is reported for every candidate; those outside its radius are explicitly marked **διερευνητική πρόταση** in the rationale, while assignments correctly remain `NONE`. This avoids pretending there are 2,000 confident matches when there are not.
 
+The analysis runs as named stages (`load → enrich → represent → discover → stability → evidence → profiles → rank → narrate → evaluate`), each cached in `.cache/stages/` under a hash of its inputs and code. A repeat run on the same inputs takes about 2 s instead of several minutes; a new customer list reuses the universe-side stages; only changed profiles go back to the LLM. `report.json` lists each stage's status and time under `stages`. See [docs/ARCHITECTURE.md §2.0](docs/ARCHITECTURE.md).
+
 ```bash
 .venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real
+.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --from-stage narrate   # regenerate the AI text only
+.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --until-stage rank     # stop after ranking (no LLM, no export)
 .venv/bin/python -m scripts.analyze --demo --output outputs/demo
 .venv/bin/python -m scripts.validate_exports --output outputs/real
 .venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio ForceCRM_Hackathon_Pelatologio.xlsx   # app must be running

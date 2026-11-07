@@ -84,7 +84,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
   - `docs/ARCHITECTURE.md` is updated.
 
 ### T3 · Re-architect as an explicit, layered, deterministic pipeline · P1 · Lane C
-- **Status:** open
+- **Status:** done, awaiting PR (Claude Code for Dimitris, 2026-11-07, branch `task/T3-pipeline`, based on `task/T2-sqlite` + current `main`). `forcecrm/stages/`: 10 stages (`load, enrich, represent, discover, stability, evidence, profiles, rank, narrate, evaluate`), Merkle cache keys over CSV/portfolio/model/library hashes and stage source code, artifacts in `.cache/stages/`; `narrate` cached per profile on its facts + Ollama digest. `rank` now runs before `narrate`. `lookalikes.csv`, `assignments.csv`, `enrichment.csv` and `profiles.json` (descriptions included) identical to the pre-refactor run; `validate_exports` PASS; e2e full 24/24, weights 25/25; 63 tests. Timing on the Linux laptop: cold 235 s → code-changed rerun with cached text 19 s → fully cached 2.1 s. CLI `--from-stage/--until-stage/--no-cache`; stage diagram in `docs/ARCHITECTURE.md` §1/§2.0. The suggested `ingest/validate` are one stage (`load`) and `assign` is part of `discover`, since assignment is the second half of the same fit. Follow-ups: the UI could show prospects before the text is ready (lane A); `audit_ranking`/`experiment_representation` still build features themselves.
 - **Context:** `pipeline.run_analysis` is one large function. The judges value clarity ("understandability", presentation), and the brief's requirements map naturally to stages.
 - **Work:**
   - Split it into explicit stages, each with typed inputs and outputs, a version string, and a content hash of its inputs. Suggested stages:
