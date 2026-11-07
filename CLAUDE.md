@@ -15,6 +15,7 @@ Repo: github.com/gribone/Archimedes2026. Original data lives outside the repo in
 The user wants exactly these 4 branches on GitHub; delete any temporary branches after merging.
 
 ### Start here
+- **Work queue:** [`TODO.md`](TODO.md), the shared multi-agent task board. Claim a task there before starting, and follow its lanes and "done" checklist.
 - **How the code works:** `docs/ARCHITECTURE.md`. It covers the pipeline diagram, the feature weights, the ranking formula, why profiles are geographic (§3) and determinism (§4).
 - **Other docs:** user-facing run instructions and the methodology are in `README.md`. Model choice and measurements are in `docs/MODEL_DATA_CARD.md` and the PDF `docs/ForceCRM-Model-Data-Card.pdf`. Requirement-by-requirement verification is in `docs/COMPETITION_AUDIT.md`, and the AI Act self-assessment in `docs/RESPONSIBLE_AI.md`.
 - **Hard rules:**
