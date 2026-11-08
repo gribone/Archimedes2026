@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/style.css" />
     <script src="/theme.js"></script>
     <script defer src="/app.js"></script>
+    <script defer src="/filters.js"></script>
     <script defer src="/onboarding.js"></script>
   </head>
   <body>
@@ -183,6 +184,88 @@
                             class="text-button"
                           >
                             Επαναφορά προεπιλογών
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                    <section class="option-section">
+                      <label class="switch"
+                        ><input type="checkbox" id="filters-toggle" /><span
+                          class="switch-track"
+                          aria-hidden="true"
+                        ></span
+                        ><span
+                          ><strong>Φίλτρα δεδομένων</strong
+                          ><small
+                            >Εξαιρέστε δραστηριότητες ή περιοχές που δεν σας ενδιαφέρουν</small
+                          ></span
+                        ></label
+                      >
+                      <div id="filters-panel" class="option-body hidden">
+                        <fieldset class="filter-mode">
+                          <legend>Πότε εφαρμόζονται τα φίλτρα;</legend>
+                          <div class="segmented" role="radiogroup">
+                            <label
+                              ><input type="radio" name="filter-mode" value="post" checked /><span
+                                ><strong>Μετά την ανάλυση</strong
+                                ><small>Μόνο στις προτάσεις · προτείνεται</small></span
+                              ></label
+                            ><label
+                              ><input type="radio" name="filter-mode" value="pre" /><span
+                                ><strong>Πριν την ανάλυση</strong
+                                ><small>Στα ακατέργαστα δεδομένα</small></span
+                              ></label
+                            >
+                          </div>
+                          <p class="option-note" id="filter-mode-help"></p>
+                        </fieldset>
+                        <div class="picker" id="activity-picker">
+                          <label for="activity-search">Δραστηριότητες (ΚΑΔ) προς εξαίρεση</label>
+                          <div class="picker-box">
+                            <input
+                              id="activity-search"
+                              type="search"
+                              autocomplete="off"
+                              role="combobox"
+                              aria-expanded="false"
+                              aria-controls="activity-options"
+                              placeholder="Αναζήτηση: π.χ. καντίνα, μπαρ ή 5630"
+                            />
+                            <ul class="picker-options hidden" id="activity-options" role="listbox"></ul>
+                          </div>
+                          <div class="chips" id="activity-chips" aria-live="polite"></div>
+                          <label class="check"
+                            ><input type="checkbox" id="activity-any" /> Εξαίρεση και όταν ο ΚΑΔ είναι
+                            δευτερεύων (όχι μόνο ο κύριος)</label
+                          >
+                        </div>
+                        <div class="picker" id="place-picker">
+                          <label for="place-search">Περιοχές προς εξαίρεση</label>
+                          <div class="picker-box">
+                            <input
+                              id="place-search"
+                              type="search"
+                              autocomplete="off"
+                              role="combobox"
+                              aria-expanded="false"
+                              aria-controls="place-options"
+                              placeholder="Περιφερειακή Ενότητα ή Δήμος: π.χ. Κυκλάδων, Θήρας"
+                            />
+                            <ul class="picker-options hidden" id="place-options" role="listbox"></ul>
+                          </div>
+                          <div class="chips" id="place-chips" aria-live="polite"></div>
+                        </div>
+                        <p class="weights-warning hidden" id="filter-pre-warning" role="note">
+                          ⚠ Πριν την ανάλυση: οι εξαιρεμένες επιχειρήσεις αφαιρούνται πριν
+                          σχηματιστούν τα προφίλ. Αλλάζουν τα προφίλ, οι στατιστικές και ο έλεγχος
+                          Recall, και όσοι πελάτες σας έχουν μόνο εξαιρεμένα καταστήματα δεν
+                          συμμετέχουν στην ανάλυση.
+                        </p>
+                        <div class="weights-footer">
+                          <span id="filters-preview" class="option-note" aria-live="polite"
+                            >Δεν έχει επιλεγεί κάποια εξαίρεση.</span
+                          ><button type="button" id="filters-clear" class="text-button">
+                            Καθαρισμός φίλτρων
                           </button>
                         </div>
                       </div>

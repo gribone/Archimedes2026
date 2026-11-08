@@ -49,9 +49,9 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | Task | Command | Notes |
 |---|---|---|
 | Web app | `python3.12 run.py` | http://127.0.0.1:8000 |
-| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min cold (mostly the 3 LLM titles + descriptions); ~2 s when every stage is cached (`.cache/stages/`). `--from-stage <s>` recomputes `s` and everything after it, `--until-stage <s>` stops there, `--no-cache` skips the disk cache. `--model` defaults to `DEFAULT_LLM` |
+| Full analysis | `.venv/bin/python -m scripts.analyze --portfolio ForceCRM_Hackathon_Pelatologio.xlsx --output outputs/real` | ~1.6–2.5 min cold (mostly the 3 LLM titles + descriptions); ~2 s when every stage is cached (`.cache/stages/`). `--from-stage <s>` recomputes `s` and everything after it, `--until-stage <s>` stops there, `--no-cache` skips the disk cache. `--model` defaults to `DEFAULT_LLM`. `--filters '<json>'` runs with user exclusions (`docs/ARCHITECTURE.md` §2.10) |
 | Validate exports | `.venv/bin/python -m scripts.validate_exports --output outputs/real --portfolio <xlsx>` | Must print `PASS` |
-| Tests | `.venv/bin/python -m pytest -q` | 75 pass (`tests/conftest.py` sets `FORCECRM_AUTH=0`; `tests/test_auth.py` turns the login back on) |
+| Tests | `.venv/bin/python -m pytest -q` | 84 pass (`tests/conftest.py` sets `FORCECRM_AUTH=0`; `tests/test_auth.py` turns the login back on) |
 | End-to-end (running server) | `.venv/bin/python -m scripts.e2e_server --url http://127.0.0.1:8000 --portfolio <xlsx> [--mode full\|weights\|restore]` | Drives the same HTTP calls as the browser, signing in first as `e2e-test` (delete that user from `.cache/forcecrm.sqlite` before a demo). The server reads CSVs and `models/e5-small` from the repo root |
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |

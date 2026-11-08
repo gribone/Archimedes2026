@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+from functools import lru_cache
 from io import BytesIO
 import json
 import threading
@@ -19,6 +20,7 @@ from .data import load_universe, read_portfolio, demo_portfolio
 from .pipeline import run_analysis, export_result
 from .narrative import DEFAULT_LLM
 from .features import DEFAULT_WEIGHTS, normalize_weights
+from .filters import excluded_mask, normalize_filters
 from .live import ATTRIBUTION, LiveCheckError, check_vats, export_live, requests_per_minute
 import os
 
@@ -121,19 +123,19 @@ def latest():
     return {'job_id': None}
 
 
-def worker(job_id, payload, demo, weights=None):
+def worker(job_id, payload, demo, weights=None, filters=None):
     try:
         c, a, _, _ = load_universe(ROOT)
         portfolio = demo_portfolio(c, a) if demo else read_portfolio(BytesIO(payload), c)
         def progress(message):
             with lock:
                 jobs[job_id]['message'] = message
-        result = run_analysis(ROOT, portfolio, demo=demo, progress=progress, weights=weights)
+        result = run_analysis(ROOT, portfolio, demo=demo, progress=progress, weights=weights, filters=filters)
         directory = ROOT / 'outputs' / job_id
         export_result(result, directory)
         with closing(db.connect(ROOT)) as con:
             db.save_run(con, job_id, result['profiles'], result['report'], result['assignments'],
-                        result['lookalikes'], c, params={'demo': demo, 'weights': weights})
+                        result['lookalikes'], c, params={'demo': demo, 'weights': weights, 'filters': filters})
         result = {'profiles': result['profiles'], 'report': result['report']}  # rows now live in SQLite
         with lock:
             jobs[job_id].update(status='complete', message='Analysis complete', result=result, directory=directory)
@@ -143,9 +145,14 @@ def worker(job_id, payload, demo, weights=None):
 
 
 @app.post('/api/analyze', status_code=202)
-async def analyze(file: UploadFile | None = File(None), demo: bool = Form(False), weights: str | None = Form(None)):
+async def analyze(file: UploadFile | None = File(None), demo: bool = Form(False), weights: str | None = Form(None),
+                  filters: str | None = Form(None)):
     payload = b''
     parsed_weights = None
+    try:
+        parsed_filters = normalize_filters(json.loads(filters)) if filters else None
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, f'Invalid filters: {exc}')
     if weights:
         try:
             parsed_weights = normalize_weights(json.loads(weights))
@@ -173,8 +180,45 @@ async def analyze(file: UploadFile | None = File(None), demo: bool = Form(False)
         live_runs.clear()
         job_id = uuid.uuid4().hex
         jobs[job_id] = {'status': 'running', 'message': 'Validating portfolio'}
-    executor.submit(worker, job_id, payload, demo, parsed_weights)
+    executor.submit(worker, job_id, payload, demo, parsed_weights, parsed_filters)
     return {'job_id': job_id}
+
+
+@lru_cache(maxsize=2)
+def _universe(root: Path):
+    """The universe for the filter picker and preview; the source CSVs do not change while serving."""
+    return load_universe(root)
+
+
+@app.get('/api/filters/options')
+def filter_options():
+    """What can be excluded: activities with their venue counts, and Π.Ε. / Δήμοι."""
+    c, a, d, _ = _universe(ROOT)
+    names = dict(zip(d.activity_id, d.description))
+    primary = a[a.kind.eq('primary')].groupby('activity_id').company_id.nunique()
+    declared = a.groupby('activity_id').company_id.nunique()
+    activities = [{'id': code, 'label': names.get(code, ''), 'primary': int(primary.get(code, 0)),
+                   'declared': int(count)} for code, count in declared.items()]
+    activities.sort(key=lambda x: (-x['primary'], -x['declared'], x['id']))
+    prefectures = c.prefecture_name.replace('', None).dropna().value_counts()
+    municipalities = c[c.municipality_name.ne('')].groupby(['municipality_name', 'prefecture_name']).size()
+    return {'total_venues': len(c), 'total_businesses': int(c.vat.nunique()), 'activities': activities,
+            'prefectures': [{'name': n, 'venues': int(v)} for n, v in sorted(prefectures.items())],
+            'municipalities': [{'name': m, 'prefecture': p, 'venues': int(v)}
+                               for (m, p), v in sorted(municipalities.items())]}
+
+
+@app.post('/api/filters/preview')
+async def filter_preview(request: Request):
+    """How many venues and businesses a set of filters would exclude (no analysis is run)."""
+    try:
+        filters = normalize_filters(await request.json())
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, f'Invalid filters: {exc}')
+    c, a, _, _ = _universe(ROOT)
+    mask = excluded_mask(c, a, filters)
+    return {'excluded_venues': int(mask.sum()), 'excluded_businesses': len(set(c.vat[mask]) - set(c.vat[~mask])),
+            'total_venues': len(c), 'total_businesses': int(c.vat.nunique())}
 
 
 @app.get('/api/jobs/{job_id}')

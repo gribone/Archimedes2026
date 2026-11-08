@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from forcecrm.data import load_universe, read_portfolio
+from forcecrm.filters import excluded_mask
 
 
 def main():
@@ -12,8 +13,18 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('outputs/real'))
     parser.add_argument('--portfolio', type=Path, default=Path('ForceCRM_Hackathon_Pelatologio.xlsx'))
     args = parser.parse_args()
-    c, _, _, _ = load_universe(Path('.'))
+    c, a, _, _ = load_universe(Path('.'))
     p = read_portfolio(args.portfolio, c)
+    report_path = args.output / 'report.json'
+    filters = json.loads(report_path.read_text('utf-8')).get('filters') if report_path.exists() else None
+    if filters:
+        # A user-filtered run: excluded venues are absent ('pre') or never suggested ('post').
+        mask = excluded_mask(c, a, filters)
+        if filters['mode'] == 'pre':
+            assert mask.sum() == filters['excluded_venues']
+            p = p[~p.vat.isin(filters['dropped_customer_vats'])]
+            c_all, c = c, c[~mask]
+        excluded_ids = set(c_all.company_id[mask]) if filters['mode'] == 'pre' else set(c.company_id[mask])
     profiles = json.loads((args.output / 'profiles.json').read_text('utf-8'))
     assignments = pd.read_csv(args.output / 'assignments.csv', dtype={'company_id': str})
     candidates = pd.read_csv(args.output / 'lookalikes.csv', dtype={'company_id': str})
@@ -31,6 +42,8 @@ def main():
     vats = candidates.company_id.map(c.set_index('company_id').vat)
     assert vats.notna().all() and vats.is_unique
     assert not set(vats) & set(p.vat)
+    if filters:
+        assert not set(candidates.company_id) & excluded_ids
     ids = {row['profile_id'] for row in profiles}
     assert set(assignments.profile_id) <= ids | {'NONE'}
     assert set(candidates.profile_id) <= ids
@@ -44,6 +57,9 @@ def main():
         assert all({'lift', 'p_value'} <= set(f) for f in profile['significant_features'])
         assert all(f['q_value'] <= .05 and f['count'] >= 5 and f['lift'] >= 1.2 for f in profile['significant_features'])
     print(f'PASS: {len(profiles)} grounded profiles, {len(assignments)} venue assignments, {len(candidates)} unique non-customer VAT recommendations.')
+    if filters:
+        print(f"NOTE: user-filtered run ({filters['mode']}): {filters['summary']} "
+              'Submission exports must come from an unfiltered run.')
 
 
 if __name__ == '__main__':
