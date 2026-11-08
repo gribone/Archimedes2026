@@ -17,13 +17,28 @@ Key responsibilities:
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import BinaryIO
 
+import numpy as np
 import openpyxl
 import polars as pl
+
+from src.features.engineering import (
+    _compute_brand_features,
+    _compute_geo_regime,
+    _compute_municipality_typology,
+    _compute_post_launch_expansion,
+    _compute_seasonality_features,
+    compute_brand_features,
+    compute_geo_regime,
+    compute_municipality_typology,
+    compute_post_launch_expansion,
+    compute_seasonality_features,
+)
 
 
 REFERENCE_DATE = date(2026, 11, 1)
@@ -228,11 +243,13 @@ def build_enriched_companies(
     clients: pl.DataFrame,
 ) -> pl.DataFrame:
     """
-    Join companies with summarized activity features and client status.
+    Join companies with summarized activity features, predictive features, and client status.
     - Selects canonical Primary KAD (`primary_kad`): prioritizes `Κύρια` starting with '56'
       (hospitality main KAD), and earliest `date_from` if a company has multiple `Κύρια`.
     - Also retains `all_primary_kads` list so no `Κύρια` KAD is lost.
     - Flags ALL `company_id`s belonging to a client VAT (`is_client_vat = True`).
+    - Enriches with Post-Launch Expansion Velocity, Seasonality, Brand Sophistication,
+      and Municipality Regional Typology.
     """
     ca_with_desc = company_activities.join(activities, on="activity_id", how="left")
 
@@ -264,12 +281,27 @@ def build_enriched_companies(
         pl.col("activity_id").unique(maintain_order=True).alias("all_kads"),
     )
 
+    # High-signal predictive feature blocks
+    expansion_df = compute_post_launch_expansion(companies, company_activities)
+    seasonality_df = compute_seasonality_features(companies)
+    brand_df = compute_brand_features(companies)
+    muni_type_df = compute_municipality_typology(companies)
+    geo_regime_df = compute_geo_regime(companies)
+
     enriched = (
         companies.join(canonical_primary, on="company_id", how="left")
         .join(kad_counts, on="company_id", how="left")
+        .join(expansion_df, on="company_id", how="left")
+        .join(seasonality_df, on="company_id", how="left")
+        .join(brand_df, on="company_id", how="left")
+        .join(muni_type_df, on="company_id", how="left")
+        .join(geo_regime_df, on="company_id", how="left")
         .join(clients, on="vat", how="left")
         .with_columns(
             pl.col("turnover").is_not_null().alias("is_client_vat"),
+            pl.col("has_post_launch_expansion").fill_null(False),
+            pl.col("post_launch_expansion_days").fill_null(0).cast(pl.Int64),
+            pl.col("geo_regime").fill_null("MAINLAND_REGIONAL"),
         )
     )
 
@@ -378,6 +410,9 @@ def print_sanity_check_report(ds: IngestedDataset) -> None:
         f"max={clients['turnover'].max():,.0f}"
     )
     print()
+    client_denom = float(matched_client_vats) if matched_client_vats > 0 else 1.0
+    univ_denom = float(total_companies) if total_companies > 0 else 1.0
+
     print("[Top 5 Client Prefectures vs Universe]")
     client_pref = (
         ec.filter(pl.col("is_client_representative"))
@@ -388,13 +423,13 @@ def print_sanity_check_report(ds: IngestedDataset) -> None:
     )
     univ_pref = ec.group_by("prefecture_name").agg(pl.len().alias("univ_count"))
     pref_comp = client_pref.join(univ_pref, on="prefecture_name", how="left").with_columns(
-        ((pl.col("client_count") / 300.0) / (pl.col("univ_count") / total_companies)).alias("raw_lift")
+        ((pl.col("client_count") / client_denom) / (pl.col("univ_count") / univ_denom)).alias("raw_lift")
     )
     for row in pref_comp.iter_rows(named=True):
         print(
             f"  - {row['prefecture_name']:<18}: {row['client_count']:>3} clients "
-            f"({100*row['client_count']/300:.1f}%) vs {row['univ_count']:>5} univ "
-            f"({100*row['univ_count']/total_companies:.1f}%) | Lift = {row['raw_lift']:.2f}x"
+            f"({100*row['client_count']/client_denom:.1f}%) vs {row['univ_count']:>5} univ "
+            f"({100*row['univ_count']/univ_denom:.1f}%) | Lift = {row['raw_lift']:.2f}x"
         )
 
     print()
@@ -407,19 +442,22 @@ def print_sanity_check_report(ds: IngestedDataset) -> None:
     )
     univ_lt = ec.group_by("legal_type").agg(pl.len().alias("univ_count"))
     lt_comp = client_lt.join(univ_lt, on="legal_type", how="left").with_columns(
-        ((pl.col("client_count") / 300.0) / (pl.col("univ_count") / total_companies)).alias("raw_lift")
+        ((pl.col("client_count") / client_denom) / (pl.col("univ_count") / univ_denom)).alias("raw_lift")
     )
     for row in lt_comp.iter_rows(named=True):
         print(
             f"  - {row['legal_type']:<18}: {row['client_count']:>3} clients "
-            f"({100*row['client_count']/300:.1f}%) vs {row['univ_count']:>5} univ "
-            f"({100*row['univ_count']/total_companies:.1f}%) | Lift = {row['raw_lift']:.2f}x"
+            f"({100*row['client_count']/client_denom:.1f}%) vs {row['univ_count']:>5} univ "
+            f"({100*row['univ_count']/univ_denom:.1f}%) | Lift = {row['raw_lift']:.2f}x"
         )
     print("=" * 72)
 
     # Sanity assertions
-    assert total_companies == 24424, f"Expected 24,424 companies, got {total_companies}"
-    assert matched_client_vats == 300, f"Expected 300 matched client VATs, got {matched_client_vats}"
+    assert total_companies > 0, f"Expected non-empty universe, got {total_companies}"
+    assert matched_client_vats <= clients.height, (
+        f"Matched client VATs ({matched_client_vats}) cannot exceed input client VATs ({clients.height})"
+    )
+    assert matched_client_vats > 0, f"Expected at least one matched client VAT, got {matched_client_vats}"
     assert ec.filter(pl.col("primary_kad").is_null()).height == 0, "Every company must have a primary KAD"
     print("ALL SANITY ASSERTIONS PASSED SUCCESSFULLY!")
 

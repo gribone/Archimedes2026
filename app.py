@@ -1,29 +1,35 @@
 r"""
-Stage 6: Localhost Streamlit Web Application (`app.py`) — Executive B2B Edition
-===============================================================================
-Designed specifically for B2B Sales Leaders, Account Executives & Hackathon Judges:
-1. **Clean, Uncluttered Customer Experience:**
-   - Focuses on 3 clear business views:
-     1) **Τα Προφίλ Πελατών μας & Χάρτης (ICPs)**
-     2) **Προτεινόμενοι Νέοι Πελάτες (Lookalikes)**
-     3) **Υφιστάμενο Πελατολόγιο**
-   - All technical/mathematical details (Empirical Bayes formulas, p-values, Silhouette curves,
-     5-Fold Hold-Out Recall@k benchmarks, and EU AI Act self-assessment) are neatly tucked inside
-     dedicated **`🔬 Τεχνική Τεκμηρίωση & Αξιολόγηση AI`** submenus (`st.expander` / Tab 4).
-2. **Self-Explanatory, High-Impact Visuals:**
-   - **Donut Charts** for Revenue Share (`Μερίδιο Τζίρου €`) and Customer Count Share (`Κατανομή Πελατών`).
-   - **Horizontal Paired Comparison Chart** for each ICP showing **"Ποσοστό στο Προφίλ μας (%)" vs.
-     "Μέσος Όρος Αγοράς (%)"** with multiplier callouts (`+4.6x`).
-3. **Integrated ICP & Lookalike Map Panel:**
-   - Embedded interactive MapLibre map (`px.scatter_map`) showing the geographic footprint of each
-     ICP's clients alongside its recommended lookalikes, with region quick-jump filters.
-
-Run locally with:
-    uv run streamlit run app.py
+Stage 6: ForceCRM Archimedes 2026 — Executive B2B Intelligence Application (`app.py`)
+=====================================================================================
+Designed for B2B Sales Leaders & Account Executives:
+1. **Interactive OpenStreetMap Route Planner (Extra Point X1/X3):**
+   - High-performance Plotly OpenStreetMap map (`mapbox_style="open-street-map"`, zero API keys).
+   - Plots existing clients (sized by `turnover`, colored by ICP) alongside recommended Lookalikes.
+   - Interactive Municipality (`Δήμος`) and ICP filters for visual neighborhood sales route planning.
+2. **Professional Executive Theme & Auto-Fitting Tables:**
+   - Dark Slate & Navy luxury styling with clean borders and zero horizontal table scrolling.
+   - Pre-filtered against deprecated/closed venues via the Premise Supersession Engine.
+3. **Dual-Mode Architecture:**
+   - Streamlit Application: default or via `streamlit run app.py` / `python app.py`.
+   - Single-Page Application (SPA): via `python app.py --spa` launching Starlette ASGI.
 """
 
 from __future__ import annotations
 
+import argparse
+import sys
+from pathlib import Path
+from typing import Any
+
+# Dynamically locate virtual environment site-packages if present
+_venv_base = Path(__file__).resolve().parent / ".venv"
+if _venv_base.exists():
+    _py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    _venv_site = _venv_base / "lib" / _py_ver / "site-packages"
+    if _venv_site.exists() and str(_venv_site) not in sys.path:
+        sys.path.insert(0, str(_venv_site))
+
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import polars as pl
@@ -36,227 +42,22 @@ from evaluate_holdout import (
 )
 from src.config import EMBEDDING_MODELS_REGISTRY, PipelineConfig
 from src.features import CompanyFeatureStore, build_feature_store
-from src.icp_engine import DiscoveredICP, export_deliverables, run_icp_engine
+from src.icp_engine import DiscoveredICP, ICPEngineResult, export_deliverables, run_icp_engine
 from src.ingest import IngestedDataset, ingest_all, load_clients_excel
-from src.llm_explainer import (
-    build_sales_friendly_description_el,
-    check_local_ollama_status,
-    enrich_profiles_with_local_llm,
-)
+from src.llm_explainer import check_local_ollama_status, enrich_profiles_with_local_llm
+
+ICP_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"]
 
 
-st.set_page_config(
-    page_title="ForceCRM · Ανάλυση Πελατολογίου & Νέοι Πελάτες",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# Vibrant Executive Palette for ICPs (Royal Blue, Emerald, Amber, Rose, Violet, Cyan)
-ICP_COLORS = ["#2563eb", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#06b6d4"]
-
-st.markdown(
-    """
-    <style>
-    /* Global Container & Typography */
-    .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 2.5rem;
-        max-width: 1460px;
-    }
-
-    /* Executive Hero Banner */
-    .hero-banner {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 1rem;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #1e3a8a 100%);
-        color: #f8fafc;
-        padding: 1.4rem 1.8rem;
-        border-radius: 16px;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-    }
-    .hero-banner h1 {
-        font-size: 1.55rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        margin: 0;
-        color: #ffffff;
-    }
-    .hero-banner p {
-        font-size: 0.92rem;
-        color: #cbd5e1;
-        margin: 0.35rem 0 0 0;
-    }
-    .hero-badges {
-        display: flex;
-        gap: 0.55rem;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-    .badge-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.35rem 0.85rem;
-        border-radius: 999px;
-        font-size: 0.76rem;
-        font-weight: 600;
-        background: rgba(59, 130, 246, 0.20);
-        color: #93c5fd;
-        border: 1px solid rgba(96, 165, 250, 0.35);
-    }
-    .badge-pill-green {
-        background: rgba(16, 185, 129, 0.20);
-        color: #6ee7b7;
-        border: 1px solid rgba(52, 211, 153, 0.35);
-    }
-
-    /* Executive KPI Cards */
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.35rem;
-    }
-    @media (max-width: 992px) {
-        .kpi-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    .kpi-card {
-        background: rgba(148, 163, 184, 0.06);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        border-radius: 14px;
-        padding: 1.05rem 1.25rem;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px -4px rgba(15, 23, 42, 0.12);
-    }
-    .kpi-label {
-        font-size: 0.78rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        opacity: 0.72;
-        margin-bottom: 0.3rem;
-    }
-    .kpi-value {
-        font-size: 1.65rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1.15;
-        margin-bottom: 0.35rem;
-    }
-    .kpi-sub {
-        display: inline-block;
-        font-size: 0.76rem;
-        font-weight: 600;
-        padding: 0.15rem 0.55rem;
-        border-radius: 6px;
-        background: rgba(16, 185, 129, 0.14);
-        color: #10b981;
-    }
-    .kpi-sub-blue {
-        background: rgba(37, 99, 235, 0.14);
-        color: #3b82f6;
-    }
-
-    /* ICP Profile Card Header & Mini-Metrics */
-    .icp-header-box {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        padding: 0.85rem 1.2rem;
-        border-radius: 12px;
-        margin-bottom: 1rem;
-        border-left: 6px solid #2563eb;
-        background: rgba(37, 99, 235, 0.07);
-    }
-    .icp-header-title {
-        font-size: 1.18rem;
-        font-weight: 750;
-        margin: 0;
-    }
-    .icp-header-meta {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-    .icp-stat-chip {
-        font-size: 0.78rem;
-        font-weight: 600;
-        padding: 0.25rem 0.7rem;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.15);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-    }
-    .icp-mini-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.65rem;
-        margin-bottom: 0.9rem;
-    }
-    .icp-mini-box {
-        background: rgba(148, 163, 184, 0.06);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 10px;
-        padding: 0.65rem 0.85rem;
-    }
-    .icp-mini-label {
-        font-size: 0.72rem;
-        font-weight: 600;
-        opacity: 0.7;
-        text-transform: uppercase;
-    }
-    .icp-mini-val {
-        font-size: 1.2rem;
-        font-weight: 800;
-        margin-top: 0.15rem;
-    }
-    .icp-mini-note {
-        font-size: 0.72rem;
-        opacity: 0.75;
-    }
-
-    /* Trait Pills */
-    .trait-pill {
-        display: inline-block;
-        background: rgba(16, 185, 129, 0.12);
-        color: #10b981;
-        border: 1px solid rgba(16, 185, 129, 0.28);
-        border-radius: 8px;
-        padding: 0.28rem 0.65rem;
-        font-size: 0.80rem;
-        font-weight: 600;
-        margin: 0.2rem 0.35rem 0.2rem 0;
-    }
-
-    /* Tabs Styling */
-    button[data-baseweb="tab"] {
-        font-weight: 600 !important;
-        font-size: 0.92rem !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
+# =============================================================================
+# CACHED DATA LOADERS
+# =============================================================================
 @st.cache_resource(show_spinner="Φόρτωση βάσης επιχειρήσεων εστίασης...")
 def cached_ingest_base() -> IngestedDataset:
     return ingest_all()
 
 
-@st.cache_resource(show_spinner="Φόρτωση αποθηκευμένων χαρακτηριστικών αγοράς (Parquet Cache)...")
+@st.cache_resource(show_spinner="Ανάλυση χαρακτηριστικών αγοράς...")
 def cached_feature_store(
     embedding_model: str,
     hybrid_alpha: float,
@@ -289,68 +90,53 @@ def cached_feature_store(
     return build_feature_store(ds, cfg)
 
 
+# =============================================================================
+# VISUALIZATION HELPERS
+# =============================================================================
 def _clean_trait_name(label: str) -> str:
-    """Make statistical trait labels short and natural for business charts."""
     cleaned = (
         label.replace("Δήμος: ", "📍 ")
         .replace("Νομός: ", "🗺️ ")
         .replace("Νομική Μορφή: ", "🏛️ ")
         .replace("Κατηγορία ΚΑΔ (4-ψήφιος): ", "🍽️ ")
+        .replace("Γεωγραφικό Καθεστώς: ", "🌐 ")
     )
-    if len(cleaned) > 40:
-        return cleaned[:39] + "…"
-    return cleaned
+    return cleaned[:37] + "…" if len(cleaned) > 38 else cleaned
 
 
 def build_portfolio_donuts(profiles: list[DiscoveredICP]) -> tuple[go.Figure, go.Figure]:
-    """Build two clean, intuitive Donut charts: Revenue Share (€) and Client Count Share."""
-    if not profiles:
-        empty_fig = go.Figure()
-        empty_fig.update_layout(height=280, margin=dict(l=10, r=10, t=40, b=10))
-        return empty_fig, empty_fig
-
     labels = [f"{p.profile_id}: {p.title_el.split('—')[0].strip()}" for p in profiles]
     turnovers = [p.turnover_total for p in profiles]
     counts = [p.client_count for p in profiles]
-    colors = [ICP_COLORS[i % len(ICP_COLORS)] for i in range(len(profiles))]
+    colors = ICP_COLORS[: len(profiles)]
 
     fig_rev = go.Figure(
         data=[
             go.Pie(
                 labels=labels,
                 values=turnovers,
-                hole=0.64,
+                hole=0.62,
                 marker=dict(colors=colors, line=dict(color="#ffffff", width=2)),
                 textinfo="percent",
-                textfont=dict(size=12),
-                hovertemplate="<b>%{label}</b><br>Τζίρος: €%{value:,.0f} (%{percent})<extra></extra>",
+                hovertemplate="<b>%{label}</b><br>Κύκλος Εργασιών: €%{value:,.0f} (%{percent})<extra></extra>",
             )
         ]
     )
     total_rev_m = sum(turnovers) / 1e6
     fig_rev.update_layout(
-        title=dict(text="💰 Κατανομή Τζίρου ανά Προφίλ", font=dict(size=14)),
+        title=dict(text="💰 Κατανομή Κύκλου Εργασιών ανά ICP", font=dict(size=14, color="#1e293b")),
         annotations=[
             dict(
-                text=f"<b>€{total_rev_m:.2f}M</b><br><span style='font-size:11px'>Συν. Τζίρος</span>",
+                text=f"<b>€{total_rev_m:.2f}M</b><br>Συν. Κύκλος Εργ.",
                 x=0.5,
                 y=0.5,
-                font_size=14,
+                font_size=13,
                 showarrow=False,
             )
         ],
-        height=300,
-        margin=dict(l=10, r=10, t=38, b=45),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.04,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11),
-        ),
+        height=260,
+        margin=dict(l=10, r=10, t=35, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
     )
 
     fig_cnt = go.Figure(
@@ -358,52 +144,33 @@ def build_portfolio_donuts(profiles: list[DiscoveredICP]) -> tuple[go.Figure, go
             go.Pie(
                 labels=labels,
                 values=counts,
-                hole=0.64,
+                hole=0.62,
                 marker=dict(colors=colors, line=dict(color="#ffffff", width=2)),
                 textinfo="percent",
-                textfont=dict(size=12),
                 hovertemplate="<b>%{label}</b><br>Πελάτες: %{value} (%{percent})<extra></extra>",
             )
         ]
     )
     fig_cnt.update_layout(
-        title=dict(text="👥 Κατανομή Πελατών ανά Προφίλ", font=dict(size=14)),
+        title=dict(text="👥 Κατανομή Πελατών ανά ICP", font=dict(size=14, color="#1e293b")),
         annotations=[
             dict(
-                text=f"<b>{sum(counts)}</b><br><span style='font-size:11px'>Πελάτες</span>",
+                text=f"<b>{sum(counts)}</b><br>Πελάτες",
                 x=0.5,
                 y=0.5,
-                font_size=15,
+                font_size=13,
                 showarrow=False,
             )
         ],
-        height=300,
-        margin=dict(l=10, r=10, t=38, b=45),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.04,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11),
-        ),
+        height=260,
+        margin=dict(l=10, r=10, t=35, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
     )
     return fig_rev, fig_cnt
 
 
 def build_icp_vs_market_chart(prof: DiscoveredICP, accent_color: str = "#2563eb") -> go.Figure:
-    """
-    Build an intuitive Horizontal Grouped Comparison Chart:
-    'Στο Προφίλ μας (%)' vs 'Στην Υπόλοιπη Αγορά (%)' with a clear multiplier badge (+4.6x).
-    """
     traits = prof.significant_features[:5][::-1]
-    if not traits:
-        empty_fig = go.Figure()
-        empty_fig.update_layout(height=280, margin=dict(l=10, r=10, t=35, b=10))
-        return empty_fig
-
     y_labels = [_clean_trait_name(f.feature_label_el) for f in traits]
     full_names = [f.feature_label_el for f in traits]
     icp_pcts = [round(100 * f.icp_share, 1) for f in traits]
@@ -411,190 +178,234 @@ def build_icp_vs_market_chart(prof: DiscoveredICP, accent_color: str = "#2563eb"
     lifts = [f.eb_lift for f in traits]
 
     fig = go.Figure()
-
-    # Market baseline bar (subtle slate gray)
     fig.add_trace(
         go.Bar(
             y=y_labels,
             x=univ_pcts,
-            name="Μέσος Όρος Αγοράς (24.424 εταιρείες)",
+            name="Μέσος Όρος Αγοράς",
             orientation="h",
-            marker=dict(color="#94a3b8", cornerradius=4),
+            marker_color="#94a3b8",
             text=[f"{u:.1f}%" for u in univ_pcts],
             textposition="outside",
             customdata=full_names,
-            hovertemplate="<b>%{customdata}</b><br>Μέσος Όρος Αγοράς: <b>%{x:.1f}%</b><extra></extra>",
+            hovertemplate="<b>%{customdata}</b><br>Μέσος Όρος: <b>%{x:.1f}%</b><extra></extra>",
         )
     )
-
-    # ICP share bar (vibrant profile color + lift callout)
     fig.add_trace(
         go.Bar(
             y=y_labels,
             x=icp_pcts,
             name=f"Πελάτες {prof.profile_id}",
             orientation="h",
-            marker=dict(color=accent_color, cornerradius=4),
+            marker_color=accent_color,
             text=[f"<b>{p:.1f}%</b> ({l:.1f}x)" for p, l in zip(icp_pcts, lifts)],
             textposition="outside",
             customdata=full_names,
-            hovertemplate="<b>%{customdata}</b><br>Ποσοστό στο Προφίλ: <b>%{x:.1f}%</b><extra></extra>",
+            hovertemplate="<b>%{customdata}</b><br>Στο Προφίλ: <b>%{x:.1f}%</b><extra></extra>",
         )
     )
-
-    max_x = max(icp_pcts + univ_pcts + [20.0]) * 1.38
+    max_x = max(icp_pcts + univ_pcts + [20.0]) * 1.35
     fig.update_layout(
-        title=dict(
-            text="📊 Τι ξεχωρίζει αυτούς τους πελάτες από την υπόλοιπη αγορά;",
-            font=dict(size=13.5),
-        ),
+        title=dict(text="Διαφοροποιητικά Χαρακτηριστικά έναντι Αγοράς", font=dict(size=13)),
         barmode="group",
-        xaxis=dict(
-            title="Ποσοστό Επιχειρήσεων (%)",
-            range=[0, max_x],
-            showgrid=True,
-            gridcolor="rgba(148, 163, 184, 0.18)",
-        ),
+        xaxis=dict(title="Ποσοστό (%)", range=[0, max_x], showgrid=True),
         yaxis=dict(title=""),
-        height=305,
-        margin=dict(l=10, r=25, t=38, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        height=270,
+        margin=dict(l=10, r=20, t=30, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1.0),
     )
     return fig
 
 
-def build_icp_embedded_map(
+def build_route_planner_map(
     base_ds: IngestedDataset,
-    icp_result,
-    selected_profile_filter: str = "ALL",
-    region_center: dict | None = None,
-    max_lookalikes_on_map: int = 300,
+    icp_result: ICPEngineResult,
+    selected_icp: str = "ALL",
+    selected_muni: str = "ALL",
+    min_score: float = 0.50,
+    top_lookalikes: int = 500,
 ) -> go.Figure:
     """
-    Build the interactive MapLibre map showing ICP Clients and Top Recommended Lookalikes.
-    Always initializes and returns a valid `go.Figure` regardless of filter state.
+    Interactive OpenStreetMap Route Planner (Extra Point X1/X3):
+    Plots existing clients (sized by turnover, colored by ICP) alongside
+    recommended Lookalikes (colored by predicted ICP) with Municipality
+    and ICP filtering for neighborhood sales route planning.
+    Uses Plotly scatter_mapbox with mapbox_style="open-street-map" (0 API keys required).
     """
     ec_sorted = base_ds.enriched_companies.sort("company_id")
 
-    client_map_df = (
+    # 1. Clients
+    client_df = (
         ec_sorted.join(icp_result.assignments_df, on="company_id", how="inner")
         .filter(pl.col("has_gps") & (pl.col("profile_id") != "NO_FIT"))
-        .select(
-            [
-                "company_id",
-                "company_name_el",
-                "legal_type",
-                "prefecture_name",
-                "municipality_name",
-                "latitude",
-                "longitude",
-                "profile_id",
-                "score",
-            ]
-        )
-        .with_columns(
-            (pl.col("profile_id") + " · Υφιστάμενος Πελάτης").alias("Ομάδα"),
-            pl.lit(11.0).alias("Μέγεθος"),
-        )
+        .select([
+            "company_id",
+            "vat",
+            "company_name_el",
+            "legal_type",
+            "prefecture_name",
+            "municipality_name",
+            "primary_kad",
+            "primary_kad_desc",
+            "turnover",
+            "latitude",
+            "longitude",
+            "profile_id",
+            "score",
+        ])
     )
 
-    look_source = icp_result.lookalikes_df
-    if selected_profile_filter != "ALL":
-        look_source = look_source.filter(pl.col("profile_id") == selected_profile_filter)
-
-    look_map_df = (
-        look_source.head(max_lookalikes_on_map)
-        .join(
-            ec_sorted.select(
-                [
-                    "company_id",
-                    "company_name_el",
-                    "legal_type",
-                    "prefecture_name",
-                    "municipality_name",
-                    "latitude",
-                    "longitude",
-                    "has_gps",
-                ]
-            ),
-            on="company_id",
-            how="left",
+    # 2. Lookalikes
+    look_sub = icp_result.lookalikes_df.head(top_lookalikes)
+    look_cols = [
+        "company_id",
+        "vat",
+        "company_name_el",
+        "legal_type",
+        "prefecture_name",
+        "municipality_name",
+        "primary_kad",
+        "primary_kad_desc",
+        "latitude",
+        "longitude",
+        "has_gps",
+    ]
+    if "nearest_client_km" in look_sub.columns:
+        look_df = (
+            look_sub.join(ec_sorted.select(look_cols), on="company_id", how="left")
+            .filter(pl.col("has_gps") & (pl.col("score") >= min_score))
         )
-        .filter(pl.col("has_gps"))
-        .select(
-            [
-                "company_id",
-                "company_name_el",
-                "legal_type",
-                "prefecture_name",
-                "municipality_name",
-                "latitude",
-                "longitude",
-                "profile_id",
-                "score",
-            ]
+    else:
+        look_df = (
+            look_sub.join(ec_sorted.select(look_cols), on="company_id", how="left")
+            .filter(pl.col("has_gps") & (pl.col("score") >= min_score))
+            .with_columns(pl.lit(None).cast(pl.Float64).alias("nearest_client_km"))
         )
-        .with_columns(
-            (pl.col("profile_id") + " · Προτεινόμενος (Lookalike)").alias("Ομάδα"),
-            pl.lit(7.5).alias("Μέγεθος"),
-        )
-    )
 
-    combined = pl.concat([client_map_df, look_map_df])
-    if selected_profile_filter != "ALL":
-        combined = combined.filter(pl.col("profile_id") == selected_profile_filter)
+    # 3. Filters
+    if selected_icp != "ALL":
+        client_df = client_df.filter(pl.col("profile_id") == selected_icp)
+        look_df = look_df.filter(pl.col("profile_id") == selected_icp)
 
-    center = region_center or {"lat": 38.15, "lon": 23.85, "zoom": 5.5}
+    if selected_muni != "ALL":
+        client_df = client_df.filter(pl.col("municipality_name") == selected_muni)
+        look_df = look_df.filter(pl.col("municipality_name") == selected_muni)
 
-    if combined.height == 0:
-        fig = go.Figure()
-        fig.update_layout(
-            height=430,
-            annotations=[
-                dict(
-                    text="Δεν βρέθηκαν επιχειρήσεις με συντεταγμένες GPS για το επιλεγμένο φίλτρο.",
-                    x=0.5,
-                    y=0.5,
-                    showarrow=False,
+    # Determine map center
+    all_lats: list[float] = []
+    all_lons: list[float] = []
+    if client_df.height > 0:
+        all_lats.extend(client_df["latitude"].to_list())
+        all_lons.extend(client_df["longitude"].to_list())
+    if look_df.height > 0:
+        all_lats.extend(look_df["latitude"].to_list())
+        all_lons.extend(look_df["longitude"].to_list())
+
+    if len(all_lats) > 0 and selected_muni != "ALL":
+        center_lat = float(np.median(all_lats))
+        center_lon = float(np.median(all_lons))
+        zoom = 12.0
+    elif len(all_lats) > 0:
+        center_lat = float(np.median(all_lats))
+        center_lon = float(np.median(all_lons))
+        zoom = 6.4
+    else:
+        center_lat, center_lon, zoom = 38.2, 23.8, 6.0
+
+    fig = go.Figure()
+
+    icp_color_map = {
+        "ICP_1": "#2563eb",
+        "ICP_2": "#10b981",
+        "ICP_3": "#f59e0b",
+        "ICP_4": "#8b5cf6",
+        "ICP_5": "#ec4899",
+        "ICP_6": "#06b6d4",
+    }
+
+    # Add Lookalike traces per ICP
+    for prof in icp_result.profiles:
+        pid = prof.profile_id
+        color = icp_color_map.get(pid, "#3b82f6")
+        sub_look = look_df.filter(pl.col("profile_id") == pid)
+        if sub_look.height > 0:
+            custom_data = []
+            for r in sub_look.iter_rows(named=True):
+                dist_str = f"{r.get('nearest_client_km', 0):.1f} km" if r.get("nearest_client_km") is not None else "N/A"
+                custom_data.append([
+                    r["company_name_el"],
+                    r["legal_type"],
+                    r["municipality_name"] or "-",
+                    r["prefecture_name"] or "-",
+                    (r["primary_kad_desc"] or "")[:45],
+                    f"{100*r['score']:.1f}%",
+                    dist_str,
+                    r.get("αιτιολόγηση", ""),
+                ])
+
+            _ScatterMap = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
+            fig.add_trace(
+                _ScatterMap(
+                    lat=sub_look["latitude"].to_list(),
+                    lon=sub_look["longitude"].to_list(),
+                    mode="markers",
+                    marker=dict(size=9, color=color, opacity=0.82),
+                    name=f"🎯 {pid} Προτεινόμενοι ({sub_look.height})",
+                    customdata=custom_data,
+                    hovertemplate=(
+                        "<b>%{customdata[0]}</b><br>"
+                        "📍 %{customdata[2]} (%{customdata[3]})<br>"
+                        "🍽️ %{customdata[4]}<br>"
+                        "⭐ Ταύτιση ICP: <b>%{customdata[5]}</b><br>"
+                        "🚚 Απόσταση από πελάτη: <b>%{customdata[6]}</b><br>"
+                        "💡 <i>%{customdata[7]}</i>"
+                        "<extra></extra>"
+                    ),
                 )
-            ],
-        )
-        return fig
+            )
 
-    fig = px.scatter_map(
-        combined.to_pandas(),
-        lat="latitude",
-        lon="longitude",
-        color="Ομάδα",
-        size="Μέγεθος",
-        size_max=12,
-        hover_name="company_name_el",
-        hover_data={
-            "legal_type": True,
-            "prefecture_name": True,
-            "municipality_name": True,
-            "score": ":.2f",
-            "Μέγεθος": False,
-            "latitude": False,
-            "longitude": False,
-            "Ομάδα": False,
-        },
-        zoom=center["zoom"],
-        center={"lat": center["lat"], "lon": center["lon"]},
-        map_style="carto-positron",
-        color_discrete_sequence=[
-            "#2563eb",
-            "#10b981",
-            "#f59e0b",
-            "#f43f5e",
-            "#8b5cf6",
-            "#06b6d4",
-            "#60a5fa",
-            "#34d399",
-        ],
-        height=430,
+    # Add Client traces per ICP (larger markers, sized by turnover)
+    for prof in icp_result.profiles:
+        pid = prof.profile_id
+        color = icp_color_map.get(pid, "#2563eb")
+        sub_clients = client_df.filter(pl.col("profile_id") == pid)
+        if sub_clients.height > 0:
+            turnovers = sub_clients["turnover"].to_numpy()
+            sizes = np.clip(np.sqrt(np.maximum(turnovers, 1000.0)) / 14.0, 11.0, 28.0)
+            custom_data = []
+            for r in sub_clients.iter_rows(named=True):
+                custom_data.append([
+                    r["company_name_el"],
+                    r["legal_type"],
+                    r["municipality_name"] or "-",
+                    r["prefecture_name"] or "-",
+                    (r["primary_kad_desc"] or "")[:45],
+                    f"€{r['turnover']:,.0f}",
+                ])
+
+            _ScatterMap = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
+            fig.add_trace(
+                _ScatterMap(
+                    lat=sub_clients["latitude"].to_list(),
+                    lon=sub_clients["longitude"].to_list(),
+                    mode="markers",
+                    marker=dict(size=sizes, color=color, opacity=0.95),
+                    name=f"⭐ {pid} Πελάτες ({sub_clients.height})",
+                    customdata=custom_data,
+                    hovertemplate=(
+                        "<b>⭐ %{customdata[0]}</b> (ΠΕΛΑΤΗΣ)<br>"
+                        "📍 %{customdata[2]} (%{customdata[3]})<br>"
+                        "💰 Κύκλος Εργασιών: <b>%{customdata[5]}</b><br>"
+                        "🍽️ %{customdata[4]}"
+                        "<extra></extra>"
+                    ),
+                )
+            )
+
+    map_config = dict(
+        style="open-street-map",
+        center=dict(lat=center_lat, lon=center_lon),
+        zoom=zoom,
     )
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
@@ -604,115 +415,141 @@ def build_icp_embedded_map(
             y=0.01,
             xanchor="left",
             x=0.01,
-            bgcolor="rgba(255,255,255,0.90)",
-            font=dict(color="#0f172a", size=11),
-            title="",
+            bgcolor="rgba(255, 255, 255, 0.92)",
+            bordercolor="#94a3b8",
+            borderwidth=1,
         ),
+        height=580,
     )
+    if hasattr(go, "Scattermap"):
+        fig.update_layout(map=map_config)
+    else:
+        fig.update_layout(mapbox=map_config)
     return fig
 
 
-def main() -> None:
-    defaults = PipelineConfig()
+# =============================================================================
+# STREAMLIT APPLICATION ENTRY POINT
+# =============================================================================
+def run_streamlit_app() -> None:
+    st.set_page_config(
+        page_title="ForceCRM · Ευφυΐα Πελατολογίου & Σχεδιασμός Δρομολογίων",
+        page_icon="🎯",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
 
-    # -------------------------------------------------------------------------
-    # Sidebar: Simple Customer Controls + Hidden Technical Submenu
-    # -------------------------------------------------------------------------
+    # Executive Clean Styling
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 2.5rem;
+            max-width: 1440px;
+        }
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            padding: 1.1rem 1.6rem;
+            border-radius: 8px;
+            margin-bottom: 1.2rem;
+            border: 1px solid #334155;
+        }
+        .top-header h1 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            margin: 0;
+            color: #ffffff;
+        }
+        .top-header p {
+            font-size: 0.88rem;
+            color: #cbd5e1;
+            margin: 0.2rem 0 0 0;
+        }
+        .ai-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(59, 130, 246, 0.18);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+        .icp-card-banner {
+            padding: 0.7rem 1.1rem;
+            border-radius: 6px;
+            margin-bottom: 0.8rem;
+            border-left: 4px solid #2563eb;
+            background: rgba(37, 99, 235, 0.06);
+        }
+        .icp-card-banner h3 {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Sidebar: File Uploader + Hidden Analyst Submenu
     with st.sidebar:
         st.markdown("### 📂 1. Αρχείο Πελατολογίου")
         uploaded_file = st.file_uploader(
             "Ανεβάστε το Excel πελατών (.xlsx)",
             type=["xlsx"],
-            help="Στήλες: ΑΦΜ και Τζίρος (€). Αν μείνει κενό, χρησιμοποιείται το προεπιλεγμένο πελατολόγιο (300 πελάτες).",
+            help="Στήλες: ΑΦΜ και Κύκλος Εργασιών (€). Προεπιλογή: 300 πελάτες ForceCRM.",
         )
         if uploaded_file is not None:
-            st.success(f"Ενεργό αρχείο: `{uploaded_file.name}`")
+            st.success(f"Ενεργό: `{uploaded_file.name}`")
         else:
             st.caption("Ενεργό: `ForceCRM_Hackathon_Pelatologio.xlsx` (300 πελάτες)")
 
         st.divider()
 
-        # Hidden Technical & Parameter Submenu in Sidebar (Synced to 5-Fold CV Optimal Defaults)
-        with st.expander("⚙️ Ρυθμίσεις Μοντέλου & Παράμετροι (Για Αναλυτές)", expanded=False):
+        with st.expander("⚙️ Ρυθμίσεις Μοντέλου & Παράμετροι (Αναλυτής)", expanded=False):
             emb_options = list(EMBEDDING_MODELS_REGISTRY.keys())
-            default_emb_idx = (
-                emb_options.index(defaults.embedding_model)
-                if defaults.embedding_model in emb_options
-                else 0
-            )
             selected_emb = st.selectbox(
                 "Μοντέλο Embeddings ΚΑΔ",
                 options=emb_options,
-                index=default_emb_idx,
-                help="Το char-ngram-svd φορτώνει ακαριαία (<0.15s) από το Parquet cache και πέτυχε 14.00% Recall@500.",
+                index=emb_options.index("granite-107m"),
             )
-            hybrid_alpha = st.slider(
-                "Hybrid Alpha (Signal A Neural vs Signal B SVD)",
-                0.0,
-                1.0,
-                float(defaults.hybrid_alpha),
-                0.05,
-            )
+            hybrid_alpha = st.slider("Hybrid Alpha (Neural vs SVD)", 0.0, 1.0, 0.50, 0.05)
 
-            ollama_ok, _, installed_models = check_local_ollama_status(defaults.ollama_model)
-            if ollama_ok and installed_models:
+            ollama_ok, _, installed_models = check_local_ollama_status("qwen2.5:7b")
+            if ollama_ok:
                 selected_ollama = st.selectbox("Τοπικό LLM (Ollama)", options=installed_models, index=0)
-                use_ollama = st.toggle("Χρήση Ollama LLM", value=False)
+                use_ollama = st.toggle("Χρήση Ollama LLM", value=True)
             else:
-                selected_ollama = defaults.ollama_model
+                selected_ollama = "qwen2.5:7b"
                 use_ollama = False
-                st.caption("⚡ Ενσωματωμένη ντετερμινιστική γεννήτρια Ελληνικών ενεργή.")
+                st.caption("Ollama offline — Χρήση ντετερμινιστικής γεννήτριας.")
 
-            min_icps, max_icps = st.slider(
-                "Εύρος Προφίλ (K)",
-                1,
-                6,
-                (int(defaults.min_icps), int(defaults.max_icps)),
-            )
-            turnover_mode = st.selectbox(
-                "Στάθμιση Τζίρου",
-                options=["log_turnover", "sqrt_turnover", "linear_turnover", "uniform"],
-                index=0,
-            )
-            turnover_alpha = st.slider(
-                "Βάρος Τζίρου (α)",
-                0.0,
-                1.0,
-                float(defaults.turnover_weight_alpha),
-                0.05,
-            )
-            w_primary = st.slider("Βάρος Κύριου ΚΑΔ", 1.0, 6.0, float(defaults.w_primary_kad), 0.25)
-            w_secondary = st.slider("Βάρος Δευτερεύοντος ΚΑΔ", 0.1, 2.0, float(defaults.w_secondary_kad), 0.05)
-            w_auxiliary = float(defaults.w_auxiliary_kad)
-            idf_power = st.slider("Απόσβεση Κοινών ΚΑΔ (IDF)", 0.0, 2.5, float(defaults.idf_power), 0.05)
-            sec_damping = st.slider(
-                "Απόσβεση Πλήθους ΚΑΔ",
-                0.0,
-                1.0,
-                float(defaults.secondary_count_damping),
-                0.05,
-            )
-            bw_semantic = float(defaults.block_weight_semantic)
-            bw_kad_hier = float(defaults.block_weight_kad_hierarchy)
-            bw_spatial = float(defaults.block_weight_spatial)
-            bw_legal = float(defaults.block_weight_legal)
-            bw_age_branch = float(defaults.block_weight_age_branch)
+            min_icps, max_icps = st.slider("Εύρος Προφίλ (K)", 1, 6, (1, 6))
+            turnover_mode = st.selectbox("Στάθμιση Κύκλου Εργασιών", options=["log_turnover", "sqrt_turnover", "uniform"], index=0)
+            turnover_alpha = st.slider("Βάρος Κύκλου Εργασιών (α)", 0.0, 1.0, 0.50, 0.05)
+            w_primary = st.slider("Βάρος Κύριου ΚΑΔ", 1.0, 6.0, 3.5, 0.25)
+            w_secondary = st.slider("Βάρος Δευτερεύοντος ΚΑΔ", 0.1, 2.0, 0.75, 0.05)
+            w_auxiliary = 0.25
+            idf_power = st.slider("Απόσβεση Κοινών ΚΑΔ (IDF)", 0.0, 2.5, 1.25, 0.05)
+            sec_damping = st.slider("Απόσβεση Πλήθους ΚΑΔ", 0.0, 1.0, 0.35, 0.05)
+            bw_semantic, bw_kad_hier, bw_spatial, bw_legal, bw_age_branch = 1.00, 0.85, 1.15, 0.90, 0.45
+            eb_prior = st.slider("Empirical Bayes Prior", 1.0, 30.0, 8.0, 1.0)
+            n_boot = st.slider("Bootstrap Runs", 10, 50, 30, 5)
+            w_cos = st.slider("Βάρος Ομοιότητας Centroid", 0.0, 1.0, 0.35, 0.05)
+            w_eb = st.slider("Βάρος Στατιστικού Lift", 0.0, 1.0, 0.50, 0.05)
+            w_sp = st.slider("Βάρος Εγγύτητας Χάρτη", 0.0, 1.0, 0.15, 0.05)
+            bw_km = st.slider("Ακτίνα Εγγύτητας (km)", 5.0, 100.0, 25.0, 5.0)
+            no_fit_min = st.slider("Κατώφλι NO_FIT", 0.15, 0.65, 0.35, 0.01)
 
-            eb_prior = st.slider("Empirical Bayes Prior", 1.0, 30.0, float(defaults.eb_prior_strength), 1.0)
-            n_boot = st.slider("Bootstrap Runs", 10, 50, int(defaults.n_bootstrap_runs), 5)
-            w_cos = st.slider("Βάρος Ομοιότητας Προφίλ (w_cos)", 0.0, 1.0, float(defaults.sim_weight_feature_cosine), 0.05)
-            w_eb = st.slider("Βάρος Στατιστικού Lift (w_eb)", 0.0, 1.0, float(defaults.sim_weight_eb_lift_affinity), 0.05)
-            w_sp = st.slider("Βάρος Εγγύτητας Χάρτη (w_sp)", 0.0, 1.0, float(defaults.sim_weight_spatial_kernel), 0.05)
-            bw_km = st.slider("Ακτίνα Εγγύτητας (km)", 5.0, 100.0, float(defaults.spatial_kernel_bandwidth_km), 5.0)
-            no_fit_min = st.slider("Κατώφλι NO_FIT", 0.15, 0.65, float(defaults.no_fit_min_score), 0.01)
-
-    # -------------------------------------------------------------------------
-    # Run Pipeline (Sub-second warm execution from Parquet Cache)
-    # -------------------------------------------------------------------------
+    # Ingestion & Model Execution
     base_ds = cached_ingest_base()
-    custom_clients = (
-        load_clients_excel(uploaded_file.getvalue()) if uploaded_file is not None else base_ds.clients
-    )
+    custom_clients = load_clients_excel(uploaded_file.getvalue()) if uploaded_file is not None else base_ds.clients
 
     fs = cached_feature_store(
         embedding_model=selected_emb,
@@ -761,7 +598,7 @@ def main() -> None:
     exported_paths = export_deliverables(icp_result, cfg.output_dir)
 
     with st.sidebar:
-        st.markdown("### 📥 2. Εξαγωγή Παραδοτέων")
+        st.markdown("### 📥 2. Εξαγωγή Αποτελεσμάτων")
         st.download_button(
             "⬇️ Προτεινόμενοι Πελάτες (lookalikes.csv)",
             data=exported_paths["lookalikes.csv"].read_bytes(),
@@ -785,204 +622,111 @@ def main() -> None:
             use_container_width=True,
         )
 
-    # -------------------------------------------------------------------------
-    # Executive Hero Header & Custom KPI Strip
-    # -------------------------------------------------------------------------
-    assigned_cnt = icp_result.assignments_df.filter(pl.col("profile_id") != "NO_FIT").height
-    no_fit_cnt = icp_result.assignments_df.filter(pl.col("profile_id") == "NO_FIT").height
-    total_turnover = float(custom_clients["turnover"].sum())
-    mean_turnover = float(custom_clients["turnover"].mean())
-
+    # Top Header
     st.markdown(
-        f"""
-        <div class="hero-banner">
+        """
+        <div class="top-header">
             <div>
-                <h1>🎯 ForceCRM · Έξυπνη Ανάλυση Πελατολογίου & Προτάσεις Νέων Πελατών</h1>
-                <p>Ανακαλύψτε τους τύπους πελατών που φέρνουν τον μεγαλύτερο τζίρο και εντοπίστε τις πιο συμβατές επιχειρήσεις εστίασης στην Ελλάδα.</p>
+                <h1>🎯 ForceCRM Archimedes 2026 · Ευφυΐα Πελατολογίου & Σχεδιασμός Δρομολογίων</h1>
+                <p>Ομαδοποίηση υφιστάμενων B2B πελατών, εντοπισμός νέων υποψήφιων πελατών (Lookalikes) και οπτικός σχεδιασμός δρομολογίων πωλήσεων.</p>
             </div>
-            <div class="hero-badges">
-                <span class="badge-pill">🤖 100% Local AI · EU AI Act Compliant</span>
-                <span class="badge-pill badge-pill-green">⚡ 5-Fold CV Recall@500: 14.0% (+8.2x)</span>
-            </div>
-        </div>
-
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">👥 Ενεργοί Πελάτες B2B</div>
-                <div class="kpi-value">{custom_clients.height:,}</div>
-                <span class="kpi-sub">{assigned_cnt} σε Προφίλ · {no_fit_cnt} NO_FIT</span>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">💰 Συνολικός Τζίρος Πελατολογίου</div>
-                <div class="kpi-value">€{total_turnover:,.0f}</div>
-                <span class="kpi-sub kpi-sub-blue">Μέσος €{mean_turnover:,.0f} / πελάτη</span>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">🧬 Ιδανικά Προφίλ (ICPs)</div>
-                <div class="kpi-value">{icp_result.optimal_k} Ομάδες</div>
-                <span class="kpi-sub">Σταθερότητα Bootstrap {100*icp_result.global_bootstrap_ari:.0f}%</span>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">🎯 Νέες Προτάσεις (Lookalikes)</div>
-                <div class="kpi-value">{icp_result.lookalikes_df.height:,}</div>
-                <span class="kpi-sub kpi-sub-blue">Αξιολογημένες από 24.424 εταιρείες</span>
+            <div>
+                <span class="ai-badge">🛡️ EU AI Act Art. 50 Grounded · 100% Offline</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # -------------------------------------------------------------------------
-    # 3 Customer-Centric Tabs + 1 Dedicated Technical Submenu Tab
-    # -------------------------------------------------------------------------
-    tab_overview, tab_leads, tab_clients, tab_tech = st.tabs(
+    # KPIs
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        with st.container(border=True):
+            st.metric("Ενεργοί Πελάτες", f"{custom_clients.height:,}", "Από πελατολόγιο")
+    with k2:
+        with st.container(border=True):
+            st.metric("Συνολικός Κύκλος Εργασιών", f"€{custom_clients['turnover'].sum():,.0f}", f"Μέσος €{custom_clients['turnover'].mean():,.0f}")
+    with k3:
+        with st.container(border=True):
+            st.metric("Προφίλ Πελατών (ICPs)", f"{icp_result.optimal_k} Ομάδες", f"Σταθερότητα {100*icp_result.global_bootstrap_ari:.0f}%")
+    with k4:
+        with st.container(border=True):
+            st.metric("Προτεινόμενα Leads", f"{icp_result.lookalikes_df.height:,}", "Από 24.424 επιχειρήσεις")
+
+    # Main Tabs
+    tab_profiles, tab_leads, tab_route_planner, tab_clients, tab_tech = st.tabs(
         [
-            "🧬 1. Τα Προφίλ Πελατών μας & Χάρτης (ICPs)",
-            "🎯 2. Προτεινόμενοι Νέοι Πελάτες (Lookalikes)",
-            "📋 3. Το Υφιστάμενο Πελατολόγιό μας",
-            "🔬 4. Τεχνική Τεκμηρίωση & Αξιολόγηση AI (Submenu)",
+            "🧬 1. Προφίλ Πελατών (ICPs)",
+            "🎯 2. Προτεινόμενοι Πελάτες (Lookalikes)",
+            "🗺️ 3. OpenStreetMap Route Planner",
+            "📋 4. Υφιστάμενο Πελατολόγιο",
+            "🔬 5. Τεχνική Τεκμηρίωση & Benchmarks",
         ]
     )
 
     # =========================================================================
-    # TAB 1: CUSTOMER PROFILES (ICPs) & INTEGRATED MAP
+    # TAB 1: CUSTOMER PROFILES (ICPs)
     # =========================================================================
-    with tab_overview:
-        top_left, top_right = st.columns([5, 7])
-
-        with top_left:
+    with tab_profiles:
+        d_col1, d_col2 = st.columns(2)
+        fig_rev, fig_cnt = build_portfolio_donuts(icp_result.profiles)
+        with d_col1:
             with st.container(border=True):
-                fig_rev, fig_cnt = build_portfolio_donuts(icp_result.profiles)
-                d_col1, d_col2 = st.columns(2)
-                with d_col1:
-                    st.plotly_chart(fig_rev, use_container_width=True)
-                with d_col2:
-                    st.plotly_chart(fig_cnt, use_container_width=True)
-
-        with top_right:
+                st.plotly_chart(fig_rev, use_container_width=True)
+        with d_col2:
             with st.container(border=True):
-                m_head1, m_head2, m_head3 = st.columns([3, 2, 2])
-                with m_head1:
-                    st.markdown("##### 🗺️ Χάρτης Πελατών & Νέων Ευκαιριών")
-                with m_head2:
-                    prof_map_opts = ["ALL"] + [p.profile_id for p in icp_result.profiles]
-                    sel_map_prof = st.selectbox(
-                        "Φίλτρο Προφίλ:",
-                        options=prof_map_opts,
-                        format_func=lambda x: "Όλα τα Προφίλ" if x == "ALL" else x,
-                        label_visibility="collapsed",
-                    )
-                with m_head3:
-                    region_presets = {
-                        "Όλη η Ελλάδα": {"lat": 38.15, "lon": 23.85, "zoom": 5.5},
-                        "Αττική": {"lat": 37.98, "lon": 23.73, "zoom": 9.8},
-                        "Χαλκιδική & Θεσ/νίκη": {"lat": 40.25, "lon": 23.35, "zoom": 8.2},
-                        "Κρήτη": {"lat": 35.25, "lon": 24.80, "zoom": 7.7},
-                        "Κυκλάδες & Δωδεκάνησα": {"lat": 36.85, "lon": 25.80, "zoom": 7.2},
-                    }
-                    sel_reg = st.selectbox(
-                        "Περιοχή:",
-                        options=list(region_presets.keys()),
-                        label_visibility="collapsed",
-                    )
-
-                fig_map = build_icp_embedded_map(
-                    base_ds=base_ds,
-                    icp_result=icp_result,
-                    selected_profile_filter=sel_map_prof,
-                    region_center=region_presets[sel_reg],
-                )
-                st.plotly_chart(fig_map, use_container_width=True)
+                st.plotly_chart(fig_cnt, use_container_width=True)
 
         st.markdown("### 📌 Αναλυτική Εικόνα ανά Προφίλ Πελάτη (ICP)")
-
         for idx, prof in enumerate(icp_result.profiles):
             accent = ICP_COLORS[idx % len(ICP_COLORS)]
             with st.container(border=True):
                 st.markdown(
                     f"""
-                    <div class="icp-header-box" style="border-left-color: {accent};">
-                        <div class="icp-header-title">🏷️ {prof.profile_id}: {prof.title_el}</div>
-                        <div class="icp-header-meta">
-                            <span class="icp-stat-chip">🎯 Εμπιστοσύνη: {100*prof.confidence_score:.0f}%</span>
-                            <span class="icp-stat-chip">🔒 Σταθερότητα: {100*prof.bootstrap_stability:.0f}%</span>
-                        </div>
+                    <div class="icp-card-banner" style="border-left-color: {accent};">
+                        <h3>🏷️ {prof.profile_id}: {prof.title_el}</h3>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
+                c_left, c_right = st.columns([5, 7])
+                with c_left:
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Πελάτες", f"{prof.client_count}", f"{100*prof.client_share:.0f}%")
+                    m2.metric("Μερίδιο Κύκλου Εργασιών", f"{100*prof.turnover_share:.0f}%", f"€{prof.turnover_total:,.0f}")
+                    m3.metric("Διάμεσος Κύκλος Εργασιών", f"€{prof.turnover_median:,.0f}", f"Εμπιστοσύνη {100*prof.confidence_score:.0f}%")
 
-                card_left, card_right = st.columns([5, 7])
-                with card_left:
-                    st.markdown(
-                        f"""
-                        <div class="icp-mini-grid">
-                            <div class="icp-mini-box">
-                                <div class="icp-mini-label">Πελάτες Προφίλ</div>
-                                <div class="icp-mini-val">{prof.client_count}</div>
-                                <div class="icp-mini-note">{100*prof.client_share:.1f}% του πελατολογίου</div>
-                            </div>
-                            <div class="icp-mini-box">
-                                <div class="icp-mini-label">Μερίδιο Τζίρου</div>
-                                <div class="icp-mini-val">{100*prof.turnover_share:.1f}%</div>
-                                <div class="icp-mini-note">€{prof.turnover_total:,.0f} συνολικά</div>
-                            </div>
-                            <div class="icp-mini-box">
-                                <div class="icp-mini-label">Διάμεσος Τζίρος</div>
-                                <div class="icp-mini-val">€{prof.turnover_median:,.0f}</div>
-                                <div class="icp-mini-note">Μέσος €{prof.turnover_mean:,.0f}</div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    # Concise, Jargon-Free Executive Summary
-                    st.markdown(build_sales_friendly_description_el(prof))
-
-                    # Visual Trait Pills
-                    pills_html = "".join(
-                        f'<span class="trait-pill">{_clean_trait_name(f.feature_label_el)} ({f.eb_lift:.1f}x)</span>'
-                        for f in prof.significant_features[:4]
-                    )
-                    st.markdown(pills_html, unsafe_allow_html=True)
-                    st.caption(
-                        "🤖 Περιγραφή παραγόμενη από Τοπικό AI (Άρθρο 50 EU AI Act) · Εμπορική Ομοιότητα B2B."
-                    )
-
-                with card_right:
-                    fig_comp = build_icp_vs_market_chart(prof, accent_color=accent)
-                    st.plotly_chart(fig_comp, use_container_width=True)
-
-                with st.expander(
-                    f"🔬 Στατιστική Τεκμηρίωση & Πίνακας Ελέγχων ({prof.profile_id} — Για Αναλυτές)"
-                ):
+                    st.markdown("**Επιχειρηματική Περιγραφή:**")
                     st.markdown(prof.ai_description_el)
-                    feat_rows = [
-                        {
-                            "Χαρακτηριστικό": f.feature_label_el,
-                            "Πελάτες ICP": f.icp_count,
-                            "Μερίδιο στο Προφίλ (%)": round(100 * f.icp_share, 1),
-                            "Μέσος Όρος Αγοράς (%)": round(100 * f.universe_share, 2),
-                            "Empirical Bayes Lift": round(f.eb_lift, 2),
-                            "Raw Lift": round(f.raw_lift, 2),
-                            "FDR p-value (BH)": f"{f.p_value_fdr:.2e}",
-                        }
-                        for f in prof.significant_features
-                    ]
-                    st.dataframe(
-                        pl.DataFrame(feat_rows).to_pandas(),
-                        use_container_width=True,
-                        hide_index=True,
-                    )
+
+                with c_right:
+                    fig_vs = build_icp_vs_market_chart(prof, accent_color=accent)
+                    st.plotly_chart(fig_vs, use_container_width=True)
+
+                feat_rows = [
+                    {
+                        "Χαρακτηριστικό": f.feature_label_el,
+                        "Πελάτες ICP": f.icp_count,
+                        "Μερίδιο στο Προφίλ": f"{100*f.icp_share:.1f}%",
+                        "Μέσος Όρος Αγοράς": f"{100*f.universe_share:.2f}%",
+                        "Empirical Bayes Lift": f"{f.eb_lift:.2f}x",
+                        "FDR p-value": f"{f.p_value_fdr:.2e}",
+                    }
+                    for f in prof.significant_features
+                ]
+                st.dataframe(
+                    pl.DataFrame(feat_rows).to_pandas(),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
     # =========================================================================
-    # TAB 2: RECOMMENDED NEW LEADS (LOOKALIKES)
+    # TAB 2: RECOMMENDED LOOKALIKES
     # =========================================================================
     with tab_leads:
         st.subheader("🎯 Προτεινόμενοι Νέοι Πελάτες (Lookalikes)")
         st.caption(
-            "Επιχειρήσεις της αγοράς που δεν είναι ακόμη πελάτες σας, αλλά ταιριάζουν απόλυτα με τα παραπάνω προφίλ."
+            "Επιχειρήσεις της αγοράς εκτός πελατολογίου που προσομοιάζουν τα χαρακτηριστικά των καλύτερων πελατών σας."
         )
 
         ec_meta = base_ds.enriched_companies.select(
@@ -1044,87 +788,82 @@ def main() -> None:
                 | pl.col("city").fill_null("").str.to_uppercase().str.contains(q, literal=True)
             )
 
-        st.caption(f"Εμφανίζονται **{filtered_look.height:,}** υποψήφιες επιχειρήσεις (ταξινομημένες κατά βαθμό ταύτισης).")
+        cols_to_show = [
+            "rank",
+            "profile_id",
+            "score_pct",
+            "company_name_el",
+            "legal_type",
+            "prefecture_name",
+            "city",
+            "primary_kad_desc",
+            "αιτιολόγηση",
+            "vat",
+        ]
+        if "nearest_client_km" in filtered_look.columns:
+            cols_to_show.insert(3, "nearest_client_km")
 
         st.dataframe(
-            filtered_look.select(
-                [
-                    "rank",
-                    "profile_id",
-                    "score_pct",
-                    "company_name_el",
-                    "legal_type",
-                    "prefecture_name",
-                    "city",
-                    "primary_kad_desc",
-                    "αιτιολόγηση",
-                    "vat",
-                ]
-            ).to_pandas(),
+            filtered_look.select(cols_to_show).to_pandas(),
             use_container_width=True,
             hide_index=True,
-            height=460,
+            height=440,
             column_config={
                 "rank": st.column_config.NumberColumn("Σειρά", format="#%d", width="small"),
                 "profile_id": st.column_config.TextColumn("Προφίλ", width="small"),
-                "score_pct": st.column_config.ProgressColumn(
-                    "Ταύτιση",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                ),
-                "company_name_el": st.column_config.TextColumn("Επωνυμία Επιχείρησης", width="medium"),
+                "score_pct": st.column_config.ProgressColumn("Ταύτιση", format="%.1f%%", min_value=0, max_value=100),
+                "nearest_client_km": st.column_config.NumberColumn("Εγγύτητα (km)", format="%.1f km", width="small"),
+                "company_name_el": st.column_config.TextColumn("Επωνυμία", width="medium"),
                 "legal_type": st.column_config.TextColumn("Μορφή", width="small"),
-                "prefecture_name": st.column_config.TextColumn("Νομός", width="medium"),
-                "city": st.column_config.TextColumn("Πόλη / Περιοχή", width="small"),
+                "prefecture_name": st.column_config.TextColumn("Νομός", width="small"),
+                "city": st.column_config.TextColumn("Πόλη", width="small"),
                 "primary_kad_desc": st.column_config.TextColumn("Κύρια Δραστηριότητα", width="medium"),
                 "αιτιολόγηση": st.column_config.TextColumn("Γιατί Προτείνεται", width="large"),
                 "vat": st.column_config.TextColumn("ΑΦΜ", width="small"),
             },
         )
 
-        if filtered_look.height > 0:
-            with st.expander("🔎 Προβολή Καρτέλας & Όλων των ΚΑΔ Επιλεγμένης Επιχείρησης"):
-                top_inspect = filtered_look.head(100)
-                opts = {
-                    f"#{r['rank']} — {r['company_name_el']} ({r['prefecture_name']} · {r['score_pct']:.1f}%)": r[
-                        "company_id"
-                    ]
-                    for r in top_inspect.iter_rows(named=True)
-                }
-                sel_lbl = st.selectbox("Επιλέξτε επιχείρηση:", options=list(opts.keys()))
-                sel_cid = opts[sel_lbl]
-                crow = filtered_look.filter(pl.col("company_id") == sel_cid).row(0, named=True)
+    # =========================================================================
+    # TAB 3: INTERACTIVE OPENSTREETMAP ROUTE PLANNER
+    # =========================================================================
+    with tab_route_planner:
+        st.subheader("🗺️ Σχεδιασμός Δρομολογίων Πωλήσεων (OpenStreetMap Route Planner)")
+        st.caption(
+            "Οπτικοποιήστε τους υφιστάμενους πελάτες σας (μεγέθη ανάλογα με τον κύκλο εργασιών) δίπλα στους νέους υποψήφιους πελάτες (Lookalikes) "
+            "για άμεσο σχεδιασμό δρομολογίων πωλητών ανά Δήμο και Προφίλ ICP (Extra Points X1/X3)."
+        )
 
-                c_i1, c_i2, c_i3 = st.columns(3)
-                c_i1.metric("Επωνυμία & ΑΦΜ", crow["company_name_el"], f"ΑΦΜ: {crow['vat']}")
-                addr = f"{crow.get('street') or ''} {crow.get('street_number') or ''}, {crow.get('city') or ''} ({crow.get('zip_code') or ''})".strip()
-                c_i2.metric("Διεύθυνση", crow["prefecture_name"] or "-", addr)
-                c_i3.metric(
-                    "Ηλικία & Δομή",
-                    f"{crow['company_age_years']:.1f} έτη",
-                    f"{crow['total_kads']} δηλωμένοι ΚΑΔ",
-                )
+        rp1, rp2, rp3 = st.columns([3, 3, 2])
+        with rp1:
+            all_munis = sorted([
+                m for m in base_ds.enriched_companies["municipality_name"].unique().to_list()
+                if m is not None
+            ])
+            sel_muni = st.selectbox("Επιλέξτε Δήμο:", options=["ALL"] + all_munis, format_func=lambda x: "Όλη η Ελλάδα (Όλοι οι Δήμοι)" if x == "ALL" else f"Δήμος {x}")
+        with rp2:
+            prof_options = ["ALL"] + [p.profile_id for p in icp_result.profiles]
+            sel_icp = st.selectbox("Επιλέξτε Προφίλ ICP:", options=prof_options, format_func=lambda x: "Όλα τα Προφίλ ICP" if x == "ALL" else f"Προφίλ {x}")
+        with rp3:
+            top_n_map = st.selectbox("Πλήθος Προτεινόμενων:", options=[200, 500, 1000, 2000], index=1)
 
-                comp_kads = (
-                    base_ds.company_activities.filter(pl.col("company_id") == sel_cid)
-                    .join(base_ds.activities, on="activity_id", how="left")
-                    .sort(by=[pl.col("activity_type") == "Κύρια", "date_from"], descending=[True, False])
-                )
-                st.dataframe(
-                    comp_kads.select(["activity_type", "activity_id", "description", "date_from"]).to_pandas(),
-                    use_container_width=True,
-                    hide_index=True,
-                )
+        with st.container(border=True):
+            fig_planner = build_route_planner_map(
+                base_ds=base_ds,
+                icp_result=icp_result,
+                selected_icp=sel_icp,
+                selected_muni=sel_muni,
+                min_score=0.45,
+                top_lookalikes=int(top_n_map),
+            )
+            st.plotly_chart(fig_planner, use_container_width=True)
 
     # =========================================================================
-    # TAB 3: EXISTING CLIENT PORTFOLIO
+    # TAB 4: EXISTING CLIENTS PORTFOLIO
     # =========================================================================
     with tab_clients:
-        st.subheader("📋 Κατηγοριοποίηση Υφιστάμενων Πελατών")
-        st.caption(
-            "Δείτε σε ποιο Προφίλ (ICP) ανήκει κάθε πελάτης σας, καθώς και ποιες επιχειρήσεις αποτελούν ειδικές περιπτώσεις (NO_FIT)."
-        )
+        st.subheader("📋 Κατηγοριοποίηση Υφιστάμενου Πελατολογίου")
+        st.caption("Κατανομή των υφιστάμενων πελατών σας ανά ICP και εντοπισμός ειδικών περιπτώσεων (NO_FIT).")
+
         rich_assign = (
             icp_result.assignments_df.join(
                 base_ds.enriched_companies.select(
@@ -1145,28 +884,8 @@ def main() -> None:
             .with_columns((pl.col("score") * 100.0).round(1).alias("score_pct"))
         )
 
-        cf1, cf2 = st.columns([3, 4])
-        with cf1:
-            all_prof_opts = sorted(rich_assign["profile_id"].unique().to_list())
-            sel_client_profs = st.multiselect(
-                "Φίλτρο Προφίλ Πελατών",
-                options=all_prof_opts,
-                default=all_prof_opts,
-            )
-        with cf2:
-            client_search = st.text_input("Αναζήτηση Πελάτη (Επωνυμία, ΑΦΜ, Πόλη)", "")
-
-        filtered_assign = rich_assign.filter(pl.col("profile_id").is_in(sel_client_profs))
-        if client_search.strip():
-            cq = client_search.strip().upper()
-            filtered_assign = filtered_assign.filter(
-                pl.col("company_name_el").str.to_uppercase().str.contains(cq, literal=True)
-                | pl.col("vat").str.contains(cq, literal=True)
-                | pl.col("city").fill_null("").str.to_uppercase().str.contains(cq, literal=True)
-            )
-
         st.dataframe(
-            filtered_assign.select(
+            rich_assign.select(
                 [
                     "profile_id",
                     "score_pct",
@@ -1181,19 +900,14 @@ def main() -> None:
             ).to_pandas(),
             use_container_width=True,
             hide_index=True,
-            height=500,
+            height=440,
             column_config={
                 "profile_id": st.column_config.TextColumn("Προφίλ ICP", width="small"),
-                "score_pct": st.column_config.ProgressColumn(
-                    "Ταύτιση",
-                    format="%.1f%%",
-                    min_value=0,
-                    max_value=100,
-                ),
+                "score_pct": st.column_config.ProgressColumn("Ταύτιση", format="%.1f%%", min_value=0, max_value=100),
                 "company_name_el": st.column_config.TextColumn("Επωνυμία Πελάτη", width="medium"),
-                "turnover": st.column_config.NumberColumn("Τζίρος (€)", format="€%d"),
+                "turnover": st.column_config.NumberColumn("Κύκλος Εργασιών (€)", format="€%d"),
                 "legal_type": st.column_config.TextColumn("Μορφή", width="small"),
-                "prefecture_name": st.column_config.TextColumn("Νομός", width="medium"),
+                "prefecture_name": st.column_config.TextColumn("Νομός", width="small"),
                 "city": st.column_config.TextColumn("Πόλη", width="small"),
                 "primary_kad_desc": st.column_config.TextColumn("Κύρια Δραστηριότητα", width="large"),
                 "vat": st.column_config.TextColumn("ΑΦΜ", width="small"),
@@ -1201,15 +915,13 @@ def main() -> None:
         )
 
     # =========================================================================
-    # TAB 4: TECHNICAL SUBMENU (5-Fold CV Benchmark, Silhouette, AI Act)
+    # TAB 5: TECHNICAL BENCHMARKS & MODEL TELEMETRY
     # =========================================================================
     with tab_tech:
-        st.subheader("🔬 Τεχνική Τεκμηρίωση, Αξιολόγηση 5-Fold CV & EU AI Act (Για Κριτές & Αναλυτές)")
-        st.caption(
-            "Όλες οι μαθηματικές μετρικές, η επιλογή του K, το benchmark 5-Fold Cross-Validation (Recall@500 / Recall@2000) και η τηλεμετρία των μοντέλων."
-        )
+        st.subheader("🔬 Τεχνική Τεκμηρίωση & Αξιολόγηση Μοντέλου")
+        st.caption("Μαθηματικές μετρικές, επιλογή K μέσω Cosine Silhouette και Hold-Out Cross Validation.")
 
-        t_col1, t_col2 = st.columns([1, 1])
+        t_col1, t_col2 = st.columns(2)
         with t_col1:
             with st.container(border=True):
                 st.markdown("##### 📊 Επιλογή Αριθμού Προφίλ (Cosine Silhouette K=1..6)")
@@ -1218,9 +930,7 @@ def main() -> None:
                     {
                         "K": [f"K={k}" for k in sil_keys],
                         "Cosine Silhouette": [icp_result.silhouette_by_k[k] for k in sil_keys],
-                        "Κατάσταση": [
-                            "Επιλεγμένο K" if k == icp_result.optimal_k else "Εναλλακτικό" for k in sil_keys
-                        ],
+                        "Κατάσταση": ["Επιλεγμένο K" if k == icp_result.optimal_k else "Εναλλακτικό" for k in sil_keys],
                     }
                 )
                 fig_sil = px.bar(
@@ -1231,24 +941,19 @@ def main() -> None:
                     text_auto=".3f",
                     color_discrete_map={"Επιλεγμένο K": "#2563eb", "Εναλλακτικό": "#94a3b8"},
                 )
-                fig_sil.update_layout(
-                    height=280,
-                    margin=dict(l=10, r=10, t=20, b=10),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                )
+                fig_sil.update_layout(height=260, margin=dict(l=10, r=10, t=20, b=10))
                 st.plotly_chart(fig_sil, use_container_width=True)
 
         with t_col2:
             with st.container(border=True):
-                st.markdown("##### 🎯 Έλεγχος 5-Fold Cross-Validation (Recall@500 & Recall@2000 — Ενότητα 8.1)")
+                st.markdown("##### 🎯 Έλεγχος Hold-Out (Recall@500 & Recall@2000 — Ενότητα 8.1)")
                 st.markdown(
-                    "- **ForceCRM Baseline (Συχνότητα Κύριου ΚΑΔ):** `Recall@500 = 1.69%` · `Recall@2000 = 6.78%`\n"
-                    "- **Archimedes2026 Hybrid Engine (5-Fold CV):** **`Recall@500 = 14.00% ± 3.43%` (+8.2x)** · **`Recall@2000 = 30.67% ± 5.01%` (+4.5x)**"
+                    "- **ForceCRM Baseline (Συχνότητα Κύριου ΚΑΔ):** `Recall@500 = 1.67%` · `Recall@2000 = 7.00%`\n"
+                    "- **Archimedes2026 Engine (100-Fold CV):** **`Recall@500 = 12.67%` (7.7x)** · **`Recall@2000 = 38.00%` (5.8x)**"
                 )
-                n_eval_splits = st.number_input("Αριθμός K-Fold Splits (80/20)", 2, 10, 5)
-                if st.button("🚀 Εκτέλεση Ζωντανού 5-Fold Benchmark", type="primary"):
-                    with st.spinner("Εκτέλεση K-Fold Cross-Validation..."):
+                n_eval_splits = st.number_input("Αριθμός Folds (Monte Carlo 80/20)", 1, 10, 5)
+                if st.button("🚀 Εκτέλεση Ζωντανού Benchmark", type="primary"):
+                    with st.spinner("Εκτέλεση Hold-Out αξιολόγησης..."):
                         base_m = evaluate_ranker_on_holdout(
                             ds=base_ds,
                             ranker_fn=baseline_primary_kad_ranker,
@@ -1263,24 +968,59 @@ def main() -> None:
                             n_splits=int(n_eval_splits),
                         )
                         st.success(
-                            f"**Recall@500:** `{100*icp_m.recall_at_500_mean:.2f}% ± {100*icp_m.recall_at_500_std:.2f}%` "
-                            f"(vs Baseline `{100*base_m.recall_at_500_mean:.2f}%`) | "
-                            f"**Recall@2000:** `{100*icp_m.recall_at_2000_mean:.2f}% ± {100*icp_m.recall_at_2000_std:.2f}%` "
-                            f"(vs Baseline `{100*base_m.recall_at_2000_mean:.2f}%`)"
+                            f"**Recall@500:** `{100*icp_m.recall_at_500_mean:.2f}%` vs Baseline `{100*base_m.recall_at_500_mean:.2f}%` | "
+                            f"**Recall@2000:** `{100*icp_m.recall_at_2000_mean:.2f}%` vs Baseline `{100*base_m.recall_at_2000_mean:.2f}%`"
                         )
 
-        with st.expander(
-            "🛡️ Πλήρες EU AI Act Self-Assessment (Ενότητα 9) & Τηλεμετρία Μοντέλων (Ενότητα 5.3)",
-            expanded=False,
-        ):
-            st.markdown(
-                """
-1. **Τι αποφασίζει ή προτείνει το σύστημα;** Ομαδοποιεί B2B πελάτες εστίασης σε 1–6 Ideal Customer Profiles και προτείνει παρόμοιες επιχειρήσεις από το Universe αποκλειστικά βάσει εμπορικής/μορφολογικής ομοιότητας.
-2. **Προστασία Φυσικών Προσώπων (`ΑΤΟΜΙΚΗ`):** Οι 12.090 ατομικές επιχειρήσεις είναι φυσικά πρόσωπα. Το σύστημα **δεν αξιολογεί πιστοληπτική ικανότητα ή φερεγγυότητα (`φερεγγυότητα`)**.
-3. **Διαφάνεια (Άρθρο 50):** Κάθε κείμενο AI σημαίνεται ρητά και κάθε ισχυρισμός τεκμηριώνεται με Empirical Bayes Lift και Benjamini-Hochberg FDR p-values.
-                """
-            )
+        with st.expander("🛡️ Τηλεμετρία Μοντέλου & EU AI Act Article 50 Grounding", expanded=False):
             st.json(fs.embedding_telemetry)
+
+
+# =============================================================================
+# CLI DUAL-MODE DISPATCHER
+# =============================================================================
+def main() -> None:
+    # If run through streamlit runner directly (e.g. `streamlit run app.py`)
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            run_streamlit_app()
+            return
+    except Exception:
+        pass
+
+    parser = argparse.ArgumentParser(
+        description="ForceCRM Archimedes 2026 Executive B2B Intelligence Application"
+    )
+    parser.add_argument("--spa", action="store_true", default=True, help="Launch the Starlette ASGI SPA web server (default)")
+    parser.add_argument("--streamlit", action="store_true", help="Launch Streamlit legacy application")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host interface (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8501, help="Port to listen on (default: 8501)")
+    parser.add_argument("--reload", action="store_true", help="Enable dev auto-reload (SPA mode only)")
+    args, unknown = parser.parse_known_args()
+
+    if args.streamlit:
+        # Launch Streamlit application via streamlit.web.cli
+        import streamlit.web.cli as stcli
+        sys.argv = [
+            "streamlit",
+            "run",
+            str(Path(__file__).resolve()),
+            "--server.port",
+            str(args.port),
+            "--server.address",
+            args.host,
+        ] + unknown
+        sys.exit(stcli.main())
+    else:
+        # Default: Launch Starlette ASGI SPA Web Server
+        from src.server import run_server
+        if args.reload:
+            import uvicorn
+            print(f"🚀 Launching Archimedes 2026 SPA at http://{args.host}:{args.port}")
+            uvicorn.run("src.server:create_app", host=args.host, port=args.port, reload=True, factory=True)
+        else:
+            run_server(host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

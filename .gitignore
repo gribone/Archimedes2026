@@ -12,9 +12,17 @@ build/
 *.swp
 
 # Raw hackathon data & generated outputs / caches
-data/
-output/
+data/*
+!data/optimal_weights.json
+!data/greek_transit_hubs.json
+!data/excluded_companies.json
+output/cache/
 *.parquet
 *.npy
 *.npz
+
+# Subagent scratch transcripts
+.agents/
+
+
 

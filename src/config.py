@@ -2,12 +2,14 @@
 Central Configuration (`src/config.py`)
 =======================================
 Single source of truth for all hyperparameters, Hybrid KAD representation mixing (`alpha`),
-feature block weights, static Parquet caching paths, deterministic clustering settings,
-and 5-Fold Cross-Validation optimization parameters.
+feature block weights, static Parquet caching paths, deterministic clustering settings
+(`kmeans_n_init=200`, `n_bootstrap_runs=200`), and RepeatedKFold (5x20=100) optimization
+loaded automatically from `data/optimal_weights.json`.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -66,30 +68,65 @@ EMBEDDING_MODELS_REGISTRY: dict[str, dict[str, str]] = {
 }
 
 
+OPTIMAL_WEIGHTS_PATH = Path("data/optimal_weights.json")
+
+DEFAULT_TRAIT_WEIGHTS: tuple[tuple[str, float], ...] = (
+    ("prefecture_name", 1.35),
+    ("municipality_name", 0.90),
+    ("geo_regime", 1.15),
+    ("legal_type", 1.25),
+    ("primary_kad", 1.20),
+    ("kad_4digit", 0.70),
+    ("age_bracket", 0.45),
+    ("branch_status", 0.35),
+    ("post_launch_status", 0.50),
+    ("seasonal_launch", 0.40),
+    ("brand_distinctiveness", 0.55),
+    ("concept_tier", 0.60),
+    ("muni_typology", 0.65),
+    ("osm_tier", 0.50),
+    ("transit_catchment", 0.45),
+)
+
+
+def load_optimal_weights_dict(path: str | Path = OPTIMAL_WEIGHTS_PATH) -> dict[str, Any]:
+    """Load `data/optimal_weights.json` if it exists on disk, otherwise return empty dict."""
+    p = Path(path)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
 @dataclass
 class PipelineConfig:
     """
     Master configuration for the ForceCRM B2B Profile Analysis & Lookalike Pipeline.
-    Locked-in defaults reflect the 5-Fold Cross-Validation Grid Search optimum.
+    Automatically loads any locked-in hyperparameters from `data/optimal_weights.json`
+    when initialized with default arguments, while preserving explicit overrides.
     """
 
     # -------------------------------------------------------------------------
-    # 1. Paths & Static Parquet Pre-Caching
+    # 1. Paths & Static Parquet / SHA-256 Pre-Caching
     # -------------------------------------------------------------------------
     data_dir: Path = Path("data")
     output_dir: Path = Path("output")
     cache_dir: Path = Path("output/cache")
     cached_kad_vectors_path: Path = Path("data/cached_kad_vectors.parquet")
     cached_universe_features_path: Path = Path("data/cached_universe_features.parquet")
+    optimal_weights_path: Path = OPTIMAL_WEIGHTS_PATH
     use_disk_cache: bool = True
+    use_sha256_client_cache: bool = True
 
     # -------------------------------------------------------------------------
     # 2. Hybrid Semantic KAD Representation (Signal A Neural + Signal B Algebraic/PPMI)
     # -------------------------------------------------------------------------
-    # Choose key from EMBEDDING_MODELS_REGISTRY ("granite-107m", "e5-base", "e5-small", "char-ngram-svd")
+    use_embedding_models: bool = True
     embedding_model: str = "granite-107m"
     embedding_batch_size: int = 128
-    embedding_device: str = "cpu"  # Enforces torch.use_deterministic_algorithms(True) on CPU
+    embedding_device: str = "cpu"
 
     # Hybrid mixing parameter alpha in [0, 1]:
     # e_k^hybrid = [sqrt(alpha) * e_k^neural, sqrt(1 - alpha) * e_k^svd]
@@ -132,16 +169,16 @@ class PipelineConfig:
     max_icps: int = 6
     homogeneity_silhouette_threshold: float = 0.08
 
-    # Deterministic K-Means settings (eliminates downstream clustering randomness)
+    # Deterministic K-Means settings (200 initializations for global optimum WCSS)
     kmeans_init: str = "k-means++"
-    kmeans_n_init: int = 50
+    kmeans_n_init: int = 200
     kmeans_random_state: int = 42
 
     turnover_weighting_mode: str = "log_turnover"
     turnover_weight_alpha: float = 0.50
 
-    # Bootstrap stability settings (Requirement A5)
-    n_bootstrap_runs: int = 30
+    # Bootstrap stability settings (Requirement A5 — 200 resamples)
+    n_bootstrap_runs: int = 200
     bootstrap_sample_fraction: float = 0.85
 
     # Empirical Bayes Shrinkage & Hypergeometric test settings (Requirement A4)
@@ -154,26 +191,83 @@ class PipelineConfig:
     total_lookalikes_to_export: int = 2000
 
     # Relative weights in the unified ICP Similarity / Commercial Fit metric
-    # (Optimized via 5-Fold Cross-Validation on Recall@500 & Recall@2000)
     sim_weight_feature_cosine: float = 0.60
     sim_weight_eb_lift_affinity: float = 0.30
     sim_weight_spatial_kernel: float = 0.10
     spatial_kernel_bandwidth_km: float = 25.0
+    trait_weights: tuple[tuple[str, float], ...] = DEFAULT_TRAIT_WEIGHTS
 
     # -------------------------------------------------------------------------
     # 5. Local LLM Explainer Settings (Requirement A6)
     # -------------------------------------------------------------------------
-    ollama_model: str = "qwen2.5:7b-instruct"
+    ollama_model: str = "gemma3:4b"
     llm_temperature: float = 0.0
-    llm_seed: int = 2026
-    llm_max_tokens: int = 450
+    llm_seed: int = 42
+    llm_max_tokens: int = 280
 
     # -------------------------------------------------------------------------
-    # 6. Evaluation Settings (Section 8.1 — 5-Fold Cross-Validation)
+    # 6. Evaluation Settings (Section 8.1 — RepeatedKFold 5x20 = 100 Evaluations)
     # -------------------------------------------------------------------------
     holdout_n_splits: int = 5
+    holdout_n_repeats: int = 20
     holdout_fraction: float = 0.20
     random_seed: int = 42
+
+    def __post_init__(self) -> None:
+        if not self.use_embedding_models:
+            self.embedding_model = "char-ngram-svd"
+            self.hybrid_alpha = 0.0
+        if self.trait_weights is not None:
+            if isinstance(self.trait_weights, dict):
+                self.trait_weights = tuple(
+                    (str(k), float(v)) for k, v in self.trait_weights.items()
+                )
+            elif isinstance(self.trait_weights, (list, tuple)):
+                self.trait_weights = tuple(
+                    (str(item[0]), float(item[1])) for item in self.trait_weights
+                )
+
+    @classmethod
+    def from_optimal_weights(cls, **overrides: Any) -> "PipelineConfig":
+        """
+        Construct a `PipelineConfig` populated from `data/optimal_weights.json` (if present),
+        then apply any explicit keyword `overrides`.
+        """
+        opt = load_optimal_weights_dict()
+        mapped: dict[str, Any] = {}
+        key_map = {
+            "embedding_model": "embedding_model",
+            "hybrid_alpha": "hybrid_alpha",
+            "alpha": "hybrid_alpha",
+            "block_weight_semantic": "block_weight_semantic",
+            "bw_sem": "block_weight_semantic",
+            "block_weight_kad_hierarchy": "block_weight_kad_hierarchy",
+            "bw_kad_hier": "block_weight_kad_hierarchy",
+            "block_weight_spatial": "block_weight_spatial",
+            "bw_spat": "block_weight_spatial",
+            "block_weight_legal": "block_weight_legal",
+            "bw_leg": "block_weight_legal",
+            "block_weight_age_branch": "block_weight_age_branch",
+            "bw_age_branch": "block_weight_age_branch",
+            "sim_weight_feature_cosine": "sim_weight_feature_cosine",
+            "w_cos": "sim_weight_feature_cosine",
+            "sim_weight_eb_lift_affinity": "sim_weight_eb_lift_affinity",
+            "w_eb": "sim_weight_eb_lift_affinity",
+            "sim_weight_spatial_kernel": "sim_weight_spatial_kernel",
+            "w_sp": "sim_weight_spatial_kernel",
+            "eb_prior_strength": "eb_prior_strength",
+            "eb_prior": "eb_prior_strength",
+            "spatial_kernel_bandwidth_km": "spatial_kernel_bandwidth_km",
+            "bw_km": "spatial_kernel_bandwidth_km",
+            "kmeans_n_init": "kmeans_n_init",
+            "n_bootstrap_runs": "n_bootstrap_runs",
+            "trait_weights": "trait_weights",
+        }
+        for src_k, dst_k in key_map.items():
+            if src_k in opt and dst_k not in mapped:
+                mapped[dst_k] = opt[src_k]
+        mapped.update(overrides)
+        return cls(**mapped)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize configuration to a plain dictionary (converting Paths to strings)."""

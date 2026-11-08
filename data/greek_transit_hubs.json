@@ -1,0 +1,187 @@
+[
+  {
+    "name": "Syntagma Metro / Transit Hub",
+    "lat": 37.9753,
+    "lon": 23.7361
+  },
+  {
+    "name": "Omonia Metro / Commercial Hub",
+    "lat": 37.9842,
+    "lon": 23.7282
+  },
+  {
+    "name": "Monastiraki Metro / Tourist Hub",
+    "lat": 37.976,
+    "lon": 23.7258
+  },
+  {
+    "name": "Panepistimio Metro",
+    "lat": 37.98,
+    "lon": 23.733
+  },
+  {
+    "name": "Akropoli Metro / Historic Hub",
+    "lat": 37.9692,
+    "lon": 23.7283
+  },
+  {
+    "name": "Kerameikos / Gazi Nightlife",
+    "lat": 37.9781,
+    "lon": 23.7126
+  },
+  {
+    "name": "Ambelokipi Metro / Medical Hub",
+    "lat": 37.9868,
+    "lon": 23.7654
+  },
+  {
+    "name": "Halandri Commercial Center",
+    "lat": 38.0075,
+    "lon": 23.7997
+  },
+  {
+    "name": "Kifisia Center",
+    "lat": 38.056,
+    "lon": 23.808
+  },
+  {
+    "name": "Piraeus Port & Metro Terminal",
+    "lat": 37.9423,
+    "lon": 23.6465
+  },
+  {
+    "name": "Rafina Port Ferry Hub",
+    "lat": 38.0194,
+    "lon": 24.0094
+  },
+  {
+    "name": "Lavrio Port Ferry Hub",
+    "lat": 37.7145,
+    "lon": 24.0562
+  },
+  {
+    "name": "Thessaloniki Port & Ladadika Strip",
+    "lat": 40.635,
+    "lon": 22.934
+  },
+  {
+    "name": "Venizelou Metro / Center",
+    "lat": 40.638,
+    "lon": 22.942
+  },
+  {
+    "name": "Agia Sofia Metro / Commercial Axis",
+    "lat": 40.633,
+    "lon": 22.949
+  },
+  {
+    "name": "Sintrivani / AUTH Campus Hub",
+    "lat": 40.63,
+    "lon": 22.96
+  },
+  {
+    "name": "Thessaloniki New Railway Station",
+    "lat": 40.643,
+    "lon": 22.919
+  },
+  {
+    "name": "Heraklion Passenger Port",
+    "lat": 35.342,
+    "lon": 25.143
+  },
+  {
+    "name": "Heraklion Airport HER",
+    "lat": 35.339,
+    "lon": 25.18
+  },
+  {
+    "name": "Souda / Chania Ferry Terminal",
+    "lat": 35.487,
+    "lon": 24.072
+  },
+  {
+    "name": "Chania Airport CHQ",
+    "lat": 35.531,
+    "lon": 24.15
+  },
+  {
+    "name": "Patras Port Passenger Terminal",
+    "lat": 38.243,
+    "lon": 21.729
+  },
+  {
+    "name": "Rhodes Commercial Port",
+    "lat": 36.444,
+    "lon": 28.228
+  },
+  {
+    "name": "Mykonos Tourlos Port",
+    "lat": 37.458,
+    "lon": 25.328
+  },
+  {
+    "name": "Santorini Athinios Port",
+    "lat": 36.386,
+    "lon": 25.431
+  },
+  {
+    "name": "Corfu Central Port",
+    "lat": 39.627,
+    "lon": 19.905
+  },
+  {
+    "name": "Volos Port Passenger Hub",
+    "lat": 39.356,
+    "lon": 22.946
+  },
+  {
+    "name": "AIA Athens International Airport",
+    "lat": 37.936,
+    "lon": 23.945
+  },
+  {
+    "name": "SKG Thessaloniki Airport",
+    "lat": 40.52,
+    "lon": 22.971
+  },
+  {
+    "name": "NTUA / EKPA Zografou Campus",
+    "lat": 37.977,
+    "lon": 23.778
+  },
+  {
+    "name": "AUEB Patision Campus",
+    "lat": 37.994,
+    "lon": 23.732
+  },
+  {
+    "name": "UniWA Egaleo Campus",
+    "lat": 37.993,
+    "lon": 23.676
+  },
+  {
+    "name": "UPatras Rio Campus",
+    "lat": 38.288,
+    "lon": 21.788
+  },
+  {
+    "name": "UoC Voutes Heraklion Campus",
+    "lat": 35.305,
+    "lon": 25.076
+  },
+  {
+    "name": "TUC Kounoupidiana Chania Campus",
+    "lat": 35.533,
+    "lon": 24.068
+  },
+  {
+    "name": "UoI Dourouti Ioannina Campus",
+    "lat": 39.618,
+    "lon": 20.838
+  },
+  {
+    "name": "DUTH Komotini Campus",
+    "lat": 41.144,
+    "lon": 25.372
+  }
+]
