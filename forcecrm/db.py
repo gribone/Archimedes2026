@@ -280,6 +280,32 @@ def query_lookalikes(con, run_id, profile=None, q=None, live=None, offset=0, lim
     return {'total': total, 'offset': offset, 'limit': limit, 'rows': [dict(r) for r in rows]}
 
 
+def export_lookalikes(con, run_id, profile=None, q=None, live=None):
+    """Every lookalike that passes the same filters as query_lookalikes, in global rank order.
+
+    The rank within the profile comes from a window function over the whole run (unaffected by
+    the filters), so exporting all ~23,000 rows stays fast.
+    """
+    if live not in LIVE_FILTERS:
+        raise ValueError(f'Unknown live filter: {live!r}')
+    where, args = '1 = 1', [run_id]
+    if profile:
+        where += ' AND l.profile_id = ?'
+        args.append(profile)
+    if q:
+        where += " AND l.search_text LIKE ? ESCAPE '\\'"
+        term = fold(q).replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        args.append(f'%{term}%')
+    where += LIVE_FILTERS[live]
+    rows = con.execute(
+        'WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY profile_id ORDER BY rank) AS profile_rank '
+        'FROM lookalikes WHERE run_id = ?) '
+        'SELECT l.rank, l.profile_rank, l.profile_id, l.company_id, l.vat, l.company_name_el, l.city, '
+        'l.municipality_name, l.score, l.rationale, g.status AS gemi_status '
+        f'FROM ranked l LEFT JOIN gemi_status g ON g.vat = l.vat WHERE {where} ORDER BY l.rank', args).fetchall()
+    return [dict(r) for r in rows]
+
+
 def map_points(con, run_id, limit=2000):
     rows = con.execute('SELECT rank, profile_id, vat, company_name_el, city, latitude, longitude FROM lookalikes '
                        'WHERE run_id = ? ORDER BY rank LIMIT ?', (run_id, limit)).fetchall()

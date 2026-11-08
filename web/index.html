@@ -3,11 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>ForceCRM · Customer Intelligence</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2315584a'/%3E%3Cpath d='M12 10h18v5H18v5h10v5H18v8h-6z' fill='white'/%3E%3C/svg%3E"
-    />
+    <title>Bizcover · Customer Intelligence</title>
+    <link rel="icon" type="image/svg+xml" href="/brand/icon.svg" />
     <link rel="stylesheet" href="/style.css" />
     <script src="/theme.js"></script>
     <script defer src="/app.js"></script>
@@ -15,12 +12,8 @@
   </head>
   <body>
     <aside class="sidebar">
-      <a class="brand" href="/" aria-label="ForceCRM home"
-        ><span class="brandmark">F<span>↗</span></span
-        ><span
-          >Force<span class="light">CRM</span
-          ><small>CUSTOMER INTELLIGENCE</small></span
-        ></a
+      <a class="brand" href="/" aria-label="Bizcover, αρχική σελίδα"
+        ><img class="brand-icon" src="/brand/icon.svg" alt="" width="42" height="42" /><span class="brand-word">Biz<span class="brand-cover">cover</span><b class="brand-ai">AI</b><small>CUSTOMER INTELLIGENCE</small></span></a
       >
       <div class="workspace">
         <span class="workspace-icon">ΕΛ</span>
@@ -48,7 +41,7 @@
     <div class="shell">
       <header class="topbar">
         <div>
-          <span class="muted">ForceCRM</span><span class="slash">/</span
+          <span class="muted">Bizcover</span><span class="slash">/</span
           ><span id="breadcrumb">Επισκόπηση</span>
         </div>
         <div class="top-right">
@@ -394,10 +387,10 @@
                   ><input
                     id="search"
                     placeholder="Αναζήτηση επωνυμίας, πόλης ή ΑΦΜ"
-                  />
+                  /><a id="export-filtered" class="button outline" href="#" title="Κατεβάζει όλη τη λίστα με τα τρέχοντα φίλτρα, για Excel">↓ Λίστα σε Excel (CSV)</a>
                 </div>
               </div>
-              <p class="reading-hint">Ξεκινήστε από την κορυφή: η λίστα είναι ταξινομημένη από την πιο ταιριαστή επιχείρηση. Επιλέξτε ένα προφίλ για να δείτε μόνο τις δικές του ευκαιρίες· η στήλη «Γιατί προτείνεται» λέει τι κοινό έχει κάθε επιχείρηση με τους πελάτες σας.</p>
+              <p class="reading-hint">Ξεκινήστε από την κορυφή: η λίστα είναι ταξινομημένη από την πιο ταιριαστή επιχείρηση. Επιλέξτε ένα προφίλ για να δείτε μόνο τις δικές του ευκαιρίες· η στήλη «Γιατί προτείνεται» λέει τι κοινό έχει κάθε επιχείρηση με τους πελάτες σας. Πατήστε το όνομα μιας επιχείρησης για τα στοιχεία της.</p>
                 <div id="live-bar" class="live-bar hidden" role="status">
                 <span id="live-message"></span
                 ><span class="live-actions"
@@ -443,9 +436,9 @@
         </div>
         <footer>
           <span
-            >ForceCRM
+            >Bizcover
             <span class="muted"
-              >· Empowering Sales. Driving Results.</span
+              >· Βρείτε τον επόμενο πελάτη σας</span
             ></span
           ><span
             >Πηγές: GEMI Open Data · © OpenStreetMap contributors (ODbL)<br /><span
@@ -455,6 +448,10 @@
           >
         </footer>
       </main>
+      <dialog id="company-dialog" class="company-dialog" aria-labelledby="company-title">
+        <div id="company-body"></div>
+        <form method="dialog"><button class="button outline" type="submit">Κλείσιμο</button></form>
+      </dialog>
     </div>
   </body>
 </html>

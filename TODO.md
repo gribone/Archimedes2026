@@ -42,7 +42,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 ## User's tasks
 
 ### T1 · Fix the UI: functional login; remove or fix non-functional buttons · P1 · Lane A
-- **Status:** login part done and merged into `main` on 2026-11-08 (Dimitris, branch `task/T16-onboarding`, deleted). It also has a one-click demo sign-in with no account and no tour pop-up (2026-11-08): demo accounts (new username = new account, existing username checks its scrypt password), HttpOnly/SameSite=Strict session cookie, 401 on the API without a session, logout, first-login guided tour and a local help assistant with support hand-off. `scripts.e2e_server` 30/30 with login on. The button audit below is still open. Since the merge, `main` also has dark mode, the "Περισσότερες επιλογές" panel (weights and live ΓΕΜΗ check) and an offline Greece map. Include them in the click-through audit.
+- **Status:** login part done and merged into `main` on 2026-11-08 (Dimitris, branch `task/T16-onboarding`, deleted). It also has a one-click demo sign-in with no account and no tour pop-up (2026-11-08): demo accounts (new username = new account, existing username checks its scrypt password), HttpOnly/SameSite=Strict session cookie, 401 on the API without a session, logout, first-login guided tour and a local help assistant with support hand-off. `scripts.e2e_server` 30/30 with login on. The button audit below is still open. Since the merge, `main` also has dark mode, the "Περισσότερες επιλογές" panel (weights and live ΓΕΜΗ check) and an offline Greece map. Include them in the click-through audit. UI made friendlier on 2026-11-08: plain-Greek labels, certainty badges instead of raw p/q-values, collapsible profiles, hover explanations, plain-language recall sentences.
 - **Context:** there is **no login today**, neither on `main` (FastAPI + `web/`) nor on the teammate's Streamlit branch. The app binds to 127.0.0.1 and has origin/host checks only.
 - **Decide first 🧑‍⚖️ (ask the user):**
   - Is login a real requirement (multi-user, per-user runs) or demo polish?
@@ -131,7 +131,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
   - The benchmark JSON covers at least 3 LLMs, including at least 1 European Greek-capable 7–9B model.
 
 ### T5 · Make profiles KAD-based instead of location-based · P1 · Lane E · 🧑‍⚖️ trade-off
-- **Status:** open
+- **Status:** partly done (2026-11-08). (1) Secondary ΚΑΔ weighted per the challenge owner's guidance (shipped, recall-neutral, stability up). (2) Co-declaration experiment (`scripts/experiment_codeclaration.py`): a 50/50 E5 + co-declaration mix is recall-neutral (21.0% / 52.3%) and makes profiles more activity-based, but merges 3 profiles into 2. **Awaiting the user's decision** whether to ship it (ARCHITECTURE §3).
 - **Context (read first):** `docs/ARCHITECTURE.md` §3 and `scripts/experiment_representation.py`.
   - Today's profiles are regions, because the E5 embeddings of all ΚΑΔ 56 descriptions are nearly identical (mean cosine 0.91). Activity carries 65% of the weight but only 8% of the separation between profiles.
   - Centring the activity embeddings made the clusters activity-driven (81% of separation), but 5-split recall fell from 21.3% / 51.3% to 18.0% / 44.7%, and the significant traits stayed geographic.
@@ -177,7 +177,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** recorded success on 2 OSes, with times; README troubleshooting is updated with any issues found.
 
 ### T8 · 5-minute presentation and live-demo script · P0 · Lane F
-- **Status:** open
+- **Status:** deck drafted (2026-11-07/08, Claude artifact «ForceCRM · Ποιος θα είναι ο επόμενος πελάτης;», 10 slides in Greek with speaker notes, demo slide includes the one-click demo sign-in). Still open: team names on the cover, share it with the team, a rehearsal within 5 minutes, and the optional backup slide with screenshots.
 - **Work:**
   - Build a deck for the "Παρουσίαση" criterion: clarity, demo, business value. Suggested slides:
     1. the problem
@@ -231,7 +231,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** the source and licence are declared in `docs/ENRICHMENT.md` and the card; the effect is measured; a snapshot is bundled in `open_data/` (no runtime network calls).
 
 ### T13 · Salesperson-friendly prospect view · P1 · Lane A (+E for wording)
-- **Status:** partly done (2026-11-07): plain-Greek justifications with comma decimals, and the per-profile rank shown in the UI. Still open: the company detail card and the filtered CSV export.
+- **Status:** done (2026-11-08): plain-Greek justifications, per-profile rank, a company card (click a prospect's name) and a CSV export of the filtered list (`/api/runs/{id}/lookalikes.csv`, Excel-friendly).
 - **Work:**
   - A7 says lookalikes are ranked **per profile**. We export one global rank with the nearest profile. Add a per-profile rank in the UI, and optionally as an extra export column if T6 allows it.
   - Rewrite justifications in plain Greek, e.g. "Καφετέρια ΙΚΕ στον Δήμο Κασσάνδρας, όπως 30 πελάτες σας του προφίλ ICP-02".
@@ -240,7 +240,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Acceptance:** a non-technical reader can say why each of the top 10 prospects was suggested.
 
 ### T14 · Responsible-AI and card polish · P1 · Lane F
-- **Status:** mostly done (2026-11-07). `docs/RESPONSIBLE_AI.md` is rewritten as a 1-page §9 self-assessment: the 4 questions, Annex III 5(b) trap, Art. 50, Art. 4, and Reg. 2026/1744 / 2 Dec 2027 (attributed to the brief). The PDF card header is fixed. Still open: PDF export of the AI Act page, and confirming the ΓΕΜΗ API host and licence.
+- **Status:** mostly done (2026-11-08). `docs/RESPONSIBLE_AI.md` covers the 4 questions, Annex III 5(b), Art. 50, Art. 4 and Reg. 2026/1744; a one-page PDF is built by `scripts/build_ai_act.py`; the PDF card header is fixed. Still open: confirm the ΓΕΜΗ API host and licence on the official portal.
 - **Work:**
   - Check `docs/RESPONSIBLE_AI.md` against the brief §9:
     - answers the 4 questions explicitly

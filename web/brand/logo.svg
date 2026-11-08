@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 140" width="100%" height="100%">
+  <defs>
+    <!-- Blue Gradient for AI Badge -->
+    <linearGradient id="logoLensBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+
+    <!-- Soft Shadow -->
+    <filter id="logoShadow" x="-15%" y="-15%" width="135%" height="135%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- ================= BRAND TYPOGRAPHY ================= -->
+  <g transform="translate(20, 22)">
+    <!-- "Bizcover" Main Wordmark ("Biz" in #0F172A, "cover" in #FFFFFF) -->
+    <text x="0" y="84" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif" font-size="104" font-weight="800" letter-spacing="-2.5" fill="#0F172A">
+      Biz<tspan fill="#FFFFFF">cover</tspan>
+    </text>
+
+    <!-- "AI" Pill Badge -->
+    <g transform="translate(432, 0)">
+      <rect x="0" y="0" width="118" height="96" rx="24" fill="url(#logoLensBlue)" filter="url(#logoShadow)" />
+      <text x="59" y="67" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif" font-size="56" font-weight="800" text-anchor="middle" fill="#FFFFFF">
+        AI
+      </text>
+      <!-- Little Sparkle on AI Badge -->
+      <path d="M 102,12 Q 102,22 112,22 Q 102,22 102,32 Q 102,22 92,22 Q 102,22 102,12 Z" fill="#67E8F9" />
+    </g>
+  </g>
+</svg>

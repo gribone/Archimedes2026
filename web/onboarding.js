@@ -54,8 +54,8 @@
   // ---------------------------------------------------------------- guided tour
   const STEPS = [
     {
-      title: "Καλώς ήρθατε στο ForceCRM!",
-      body: "Σε 1 λεπτό θα δείτε πώς το ForceCRM βρίσκει ποιοι είναι οι καλύτεροι πελάτες σας και ποιες επιχειρήσεις τους μοιάζουν. Μπορείτε να ξαναδείτε την ξενάγηση από το κουμπί «?» πάνω δεξιά.",
+      title: "Καλώς ήρθατε στο Bizcover!",
+      body: "Σε 1 λεπτό θα δείτε πώς το Bizcover βρίσκει ποιοι είναι οι καλύτεροι πελάτες σας και ποιες επιχειρήσεις τους μοιάζουν. Μπορείτε να ξαναδείτε την ξενάγηση από το κουμπί «?» πάνω δεξιά.",
     },
     {
       target: ".sidebar nav",
@@ -279,9 +279,9 @@
       panel = document.createElement("section");
       panel.id = "chat-panel";
       panel.className = "chat-panel hidden";
-      panel.setAttribute("aria-label", "Βοηθός ForceCRM");
+      panel.setAttribute("aria-label", "Βοηθός Bizcover");
       panel.innerHTML =
-        '<header class="chat-head"><div><strong>Βοηθός ForceCRM</strong>' +
+        '<header class="chat-head"><div><strong>Βοηθός Bizcover</strong>' +
         '<small><span class="chat-ai">AI</span> Τοπικό μοντέλο · οι απαντήσεις μπορεί να έχουν λάθη</small></div>' +
         '<button type="button" class="chat-close" aria-label="Κλείσιμο βοηθού">✕</button></header>' +
         '<div class="chat-list" role="log" aria-live="polite"></div>' +
@@ -344,7 +344,7 @@
       bubble(
         "bot",
         (afterTour ? "Τέλος η ξενάγηση! " : "Γεια σας! ") +
-          "Είμαι ο βοηθός του ForceCRM. Ρωτήστε με πώς να χρησιμοποιήσετε την εφαρμογή ή τι σημαίνουν τα αποτελέσματα. Αν χρειαστείτε άνθρωπο, θα σας φέρω σε επαφή με την υποστήριξη.",
+          "Είμαι ο βοηθός του Bizcover. Ρωτήστε με πώς να χρησιμοποιήσετε την εφαρμογή ή τι σημαίνουν τα αποτελέσματα. Αν χρειαστείτε άνθρωπο, θα σας φέρω σε επαφή με την υποστήριξη.",
         "Βοηθός · σταθερό μήνυμα",
       );
     }
@@ -412,7 +412,7 @@
         try {
           contact = (await (await fetch("/api/support")).json()).contact;
         } catch {
-          contact = { name: "Υποστήριξη ForceCRM", email: "", phone: "", hours: "" };
+          contact = { name: "Υποστήριξη Bizcover", email: "", phone: "", hours: "" };
         }
       }
       const card = bubble(

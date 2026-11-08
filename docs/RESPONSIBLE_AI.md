@@ -1,6 +1,6 @@
 # EU AI Act self-assessment (1 page)
 
-ForceCRM · local B2B prospect research for Greek food-service businesses · 7 November 2026. This is an engineering self-assessment following the competition brief §9; it is not a legal opinion.
+ForceCRM · local B2B prospect research for Greek food-service businesses · 8 November 2026. This is an engineering self-assessment following the competition brief §9; it is not a legal opinion.
 
 **Classification.** Clustering businesses for B2B sales is **not an Annex III high-risk use** of Regulation (EU) 2024/1689.
 - **The trap:** Annex III point 5(b) makes creditworthiness evaluation or credit scoring of **natural persons** high-risk, and sole proprietorships (ΑΤΟΜΙΚΗ) are natural persons. ForceCRM therefore **never produces a solvency, credit or payment-risk score**.
@@ -23,7 +23,7 @@ ForceCRM · local B2B prospect research for Greek food-service businesses · 7 N
 
 ## 3. What does the user see about how a result arose?
 - **Transparency (Art. 50, applicable from 2 August 2026):** every AI-written text is labelled.
-  - In the UI, each AI text carries an "AI-GENERATED · LOCAL LLM" tag.
+  - In the UI, each AI text carries an «AI · ΤΟΠΙΚΟ ΜΟΝΤΕΛΟ» tag.
   - In `profiles.json`: `ai_generated`, `description_status` and `title_source`. Each sentence also records its `author` (local LLM or verified template) and its source fact.
   - The in-app help assistant labels each answer "AI · τοπικό μοντέλο" or "σταθερή απάντηση", and its header warns that answers can contain mistakes.
 - **Evidence behind every profile:** counts, revenue share, traits with lift, p-value and q-value, bootstrap stability, fit confidence and the activity mix against the market.

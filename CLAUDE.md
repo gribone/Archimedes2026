@@ -15,6 +15,7 @@ Repo: github.com/gribone/Archimedes2026. Original data lives outside the repo in
 The user wants exactly these 4 branches on GitHub; delete any temporary branches after merging.
 
 ### Start here
+- **App name and brand:** the web app is **Bizcover** (user, 2026-11-08). Assets are in `web/brand/` (icon, logo, icon + logo). Colours are the SVGs' codes, set as CSS tokens in `web/style.css`: blue `#2563EB`, dark blue `#1E3A8A`, sky `#38BDF8`, navy `#0F172A`, rose `#E11D48` / `#FB7185`. The wordmark has white «cover», so the full logo only sits on a blue background; elsewhere it is HTML text. The `X-ForceCRM` request header is an internal security header, so keep it. «ForceCRM» stays only where it names the challenge.
 - **Work queue:** [`TODO.md`](TODO.md), the shared multi-agent task board. Claim a task there before starting, and follow its lanes and "done" checklist.
 - **How the code works:** `docs/ARCHITECTURE.md`. It covers the pipeline diagram, the feature weights, the ranking formula, why profiles are geographic (§3) and determinism (§4).
 - **Other docs:** user-facing run instructions and the methodology are in `README.md`. Model choice and measurements are in `docs/MODEL_DATA_CARD.md` and the PDF `docs/ForceCRM-Model-Data-Card.pdf`. Requirement-by-requirement verification is in `docs/COMPETITION_AUDIT.md`, and the AI Act self-assessment in `docs/RESPONSIBLE_AI.md`.
@@ -53,6 +54,8 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 | 5-split recall audit | `.venv/bin/python -m scripts.audit_ranking --with-tourism` | Use `--with-tourism` to match the shipped pipeline; without it you get the older numbers |
 | Representation experiment | `.venv/bin/python -m scripts.experiment_representation --portfolio <xlsx> [--sweep]` | Activity centring vs finer geography |
 | Benchmarks | `scripts.benchmark embeddings` / `embedding-recall --portfolio <xlsx>` / `llms --profiles outputs/real/profiles.json` | Need `models/e5-base`, `models/multilingual-minilm`, `qwen3:1.7b`, `gemma3:1b` |
+| AI Act PDF (1 page) | `.venv/bin/python -m scripts.build_ai_act` | Renders `docs/RESPONSIBLE_AI.md` to `docs/ForceCRM-AI-Act-Self-Assessment.pdf`; needs reportlab. Rebuild after editing the Markdown, and keep it to 1 page |
+| T5 co-declaration experiment | `.venv/bin/python -m scripts.experiment_codeclaration --portfolio <xlsx>` | Results in `docs/ARCHITECTURE.md` §3 |
 | PDF model card | `.venv/bin/python -m scripts.build_card` | Needs `pip install reportlab`, `outputs/real`, `outputs/embedding-comparison.json` and `outputs/llm-comparison.json` |
 
 ### Measured results (reproduced on this Mac)

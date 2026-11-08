@@ -23,7 +23,7 @@ from .live import ATTRIBUTION, LiveCheckError, check_vats, export_live, requests
 import os
 
 ROOT = Path(__file__).resolve().parents[1]
-app = FastAPI(title='ForceCRM Local Intelligence', docs_url='/api/docs')
+app = FastAPI(title='Bizcover Local Intelligence', docs_url='/api/docs')
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]', 'testserver'])
 executor = ThreadPoolExecutor(max_workers=1)
 lock = threading.Lock()
@@ -214,6 +214,37 @@ def run_lookalikes(run_id: str, profile: str | None = None, q: str | None = None
             return db.query_lookalikes(con, run_id, profile=profile, q=q, live=live, offset=offset, limit=limit)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
+
+
+EXPORT_COLUMNS = [('rank', 'Κατάταξη'), ('profile_rank', 'Κατάταξη στο προφίλ'), ('profile_id', 'Προφίλ'),
+                  ('company_name_el', 'Επωνυμία'), ('vat', 'ΑΦΜ'), ('city', 'Πόλη'), ('municipality_name', 'Δήμος'),
+                  ('score', 'Ταίριασμα (%)'), ('rationale', 'Γιατί προτείνεται'), ('gemi_status', 'Κατάσταση ΓΕΜΗ'),
+                  ('company_id', 'company_id')]
+GEMI_LABELS = {'active': 'Ενεργή', 'inactive': 'Ανενεργή', 'not_found': 'Δεν βρέθηκε', None: ''}
+
+
+@app.get('/api/runs/{run_id}/lookalikes.csv')
+def run_lookalikes_csv(run_id: str, profile: str | None = None, q: str | None = None, live: str | None = None):
+    """The prospect list with the UI's current filters, for Excel (';' separator, decimal comma, BOM)."""
+    import csv
+    from io import StringIO
+    with closing(db.connect(ROOT)) as con:
+        if not db.has_run(con, run_id):
+            raise HTTPException(404, 'Run not found.')
+        try:
+            rows = db.export_lookalikes(con, run_id, profile=profile, q=q, live=live)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    buffer = StringIO()
+    writer = csv.writer(buffer, delimiter=';')
+    writer.writerow([label for _, label in EXPORT_COLUMNS])
+    for row in rows:
+        values = dict(row, score=f"{100 * float(row['score']):.1f}".replace('.', ','),
+                      gemi_status=GEMI_LABELS.get(row.get('gemi_status'), row.get('gemi_status') or ''))
+        writer.writerow([values.get(key, '') for key, _ in EXPORT_COLUMNS])
+    name = 'forcecrm-prospects' + (f'-{profile}' if profile else '') + '.csv'
+    return Response('\ufeff' + buffer.getvalue(), media_type='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{name}"'})
 
 
 @app.get('/api/companies')

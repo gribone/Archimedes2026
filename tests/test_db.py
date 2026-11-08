@@ -124,3 +124,15 @@ def test_api_pages_runs_and_companies(universe, monkeypatch):
         assert client.get('/api/companies/10').json()['company_name_el'] == 'Καφετέρια Άλφα'
         assert client.get('/api/companies/404').status_code == 404
         assert client.get('/api/companies', params={'q': 'θεσσαλονικη'}).json()['companies'][0]['company_id'] == '11'
+
+
+def test_export_matches_the_filtered_table(universe):
+    with closing(saved_run(universe)) as con:
+        for kwargs in [{}, {'profile': 'ICP-01'}, {'q': 'ταβερνα'}, {'q': '%'}]:
+            table = db.query_lookalikes(con, 'run1', offset=0, limit=200, **kwargs)
+            export = db.export_lookalikes(con, 'run1', **kwargs)
+            assert len(export) == table['total']
+            assert [(r['rank'], r['profile_rank']) for r in export] == \
+                   [(r['rank'], r['profile_rank']) for r in table['rows']]
+        with pytest.raises(ValueError):
+            db.export_lookalikes(con, 'run1', live='bogus')

@@ -1,4 +1,6 @@
-# ForceCRM · Local Customer Intelligence
+# Bizcover · Local Customer Intelligence
+
+**Bizcover** is the app's name: the ForceCRM Hackathon 2026 solution. Brand assets live in `web/brand/` (`icon.svg`, `logo.svg`, `iconandlogo.svg`); the palette is blue `#2563EB` / `#1E3A8A` / `#38BDF8`, navy `#0F172A` and rose `#F43F5E`.
 
 A localhost application for discovering 1–6 ideal customer profiles in Greek HORECA businesses, explaining them in Greek, and ranking new prospects. FastAPI serves a dependency-free Greek browser interface; NumPy/scikit-learn perform analysis; E5 embeds Greek activity descriptions; Ollama runs Ministral locally.
 
@@ -76,7 +78,7 @@ Open the URL and click **Δοκιμή με demo δεδομένα**. This deliber
 
 The supplied workbook is `ForceCRM_Hackathon_Pelatologio.xlsx` (300 rows, `ΑΦΜ` and `Τζίρος (€)`). Upload it through the interface. Generic `vat` and `revenue` columns (Greek `ΑΦΜ` and `Έσοδα` also accepted) work too. A blank template can be downloaded in the interface. VATs are preserved as nine-character strings, including leading zeros. Decimal numbers and Greek decimal strings such as `1.234,50` are accepted. Supply one row per VAT; duplicate or unknown VATs, negative/nonfinite revenue, and portfolios with fewer than five customers are rejected with an explanation.
 
-The interface provides profiles, grounded descriptions, statistical tables, stability, a searchable/paginated prospect list, a prospects map over an offline Greece outline, internal holdout results, and downloads. Recommendations are sales research leads, not automatic outreach or credit decisions.
+Click a prospect's name for its company card (address, legal form, every declared ΚΑΔ, ΓΕΜΗ status if checked, an OpenStreetMap link). «↓ Λίστα σε Excel (CSV)» downloads the whole list with the current filters (`;` separator, decimal comma, UTF-8 BOM). The interface provides profiles, grounded descriptions, statistical tables, stability, a searchable/paginated prospect list, a prospects map over an offline Greece outline, internal holdout results, and downloads. Recommendations are sales research leads, not automatic outreach or credit decisions.
 
 **Περισσότερες επιλογές** (more options) panel:
 - **Adjustable similarity weights** (activity / geography / legal form / age). The validated defaults are 65 / 20 / 10 / 5. A custom run shows a warning and re-runs the internal holdout with the default weights, so the accuracy trade-off is visible. Submission exports should use the defaults.
@@ -155,7 +157,7 @@ Open [notebooks/ForceCRM_Colab.ipynb](notebooks/ForceCRM_Colab.ipynb) in Colab a
 
 Sources: **ΓΕΜΗ (GEMI) Open Data** and **Geocoding powered by OpenStreetMap contributors (ODbL)**. Bundled enrichment: OpenStreetMap via Geofabrik (ODbL), ELSTAT hotel nights and census, and the Natural Earth map outline (public domain). Optional live check: ΓΕΜΗ Open Data API (ODC-BY 1.0, © Κεντρική Υπηρεσία ΓΕΜΗ / ΚΕΕΕ; see [ENRICHMENT.md](docs/ENRICHMENT.md)). Supplied data is restricted to this competition; do not publish the CSVs or customer portfolios. `.gitignore` excludes them, models, caches and outputs; inspect staged files before publishing.
 
-[Responsible AI self-assessment](docs/RESPONSIBLE_AI.md) records scope, impacts, visible evidence and failure modes. All model-composed text is labeled. No credit/solvency scores, protected characteristics or automated contact are generated. The backend binds to loopback, checks Host, requires a signed-in session for the API (local demo accounts), requires a same-origin custom mutation header, uses no CORS wildcard, disables external embedding fetches during analysis, and restricts Ollama to literal `127.0.0.1` with proxy inheritance disabled. The browser loads no CDN assets or map tiles. The only outbound runtime call is the opt-in ΓΕΜΗ live check described above.
+[Responsible AI self-assessment](docs/RESPONSIBLE_AI.md) (one-page PDF: [docs/ForceCRM-AI-Act-Self-Assessment.pdf](docs/ForceCRM-AI-Act-Self-Assessment.pdf), rebuilt with `python -m scripts.build_ai_act`) records scope, impacts, visible evidence and failure modes. All model-composed text is labeled. No credit/solvency scores, protected characteristics or automated contact are generated. The backend binds to loopback, checks Host, requires a signed-in session for the API (local demo accounts), requires a same-origin custom mutation header, uses no CORS wildcard, disables external embedding fetches during analysis, and restricts Ollama to literal `127.0.0.1` with proxy inheritance disabled. The browser loads no CDN assets or map tiles. The only outbound runtime call is the opt-in ΓΕΜΗ live check described above.
 
 AI coding assistant disclosure (development only, not part of application inference):
 - **OpenAI Codex**: architecture, implementation, documentation, tests and debugging.

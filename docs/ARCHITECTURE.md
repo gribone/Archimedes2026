@@ -262,6 +262,16 @@ A `--sweep` over partial centring (α = 0.5 / 0.8) and lower activity weights (0
 
 **Decision:** keep the shipped representation and report business traits explicitly instead: portfolio-wide traits, the activity mix per profile, and the activity sentence in each description. A salesperson sees that this customer base is defined by *where* businesses are, and also that ΙΚΕ companies and school canteens are over-represented everywhere.
 
+**Follow-up (2026-11-08): ΚΑΔ co-declaration.** The description embeddings cannot separate food-service types well, so a second experiment (`scripts/experiment_codeclaration.py`) learns code vectors from which ΚΑΔ businesses declare *together*: PPMI over primary + secondary codes, then 64-dimensional SVD. Measured with the shipped secondary-ΚΑΔ rule:
+
+| Activity representation | Recall@500 | Recall@2000 | k | Activity traits in the profiles |
+|---|---:|---:|---:|---:|
+| **Shipped: E5 descriptions** | **21.7%** | **51.0%** | 3 | 2 |
+| Co-declaration only | 17.0% | 49.3% | 2 | 5 |
+| 50% E5 + 50% co-declaration | 21.0% | 52.3% | 2 | 5 |
+
+The 50/50 mix is recall-neutral within noise and gives more activity-based profiles: roughly «ΙΚΕ restaurants, Halkidiki and Attica» and «cafés, refreshment stands and school canteens (4.3×) in tourist municipalities». But it merges three profiles into two, and their first trait is still geographic. **Not shipped: the trade-off is the user's decision (TODO T5).**
+
 ## 4. Is it deterministic?
 
 **For recommendations, yes.** The same Excel, data files, model files and software versions give the **same profiles, the same assignments and the same ranked lookalikes**, down to the byte.

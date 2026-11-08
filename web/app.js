@@ -474,6 +474,46 @@ function filtered() {
         )),
   );
 }
+// Company card: opened from a prospect's name, from /api/companies/{id} (stored registry data).
+const shownRows = new Map();
+const GEMI_TEXT = { active: "Ενεργή στο ΓΕΜΗ", inactive: "Ανενεργή στο ΓΕΜΗ", not_found: "Δεν βρέθηκε στο ΓΕΜΗ" };
+const ACTIVITY_KIND = { "Κύρια": 0, "Δευτερεύουσα": 1, "Βοηθητική": 2 };
+function companyCard(c, row) {
+  const acts = [...(c.activities || [])].sort((a, b) => (ACTIVITY_KIND[a.activity_type] ?? 3) - (ACTIVITY_KIND[b.activity_type] ?? 3));
+  const primary = acts.filter((a) => a.activity_type === "Κύρια");
+  const others = acts.filter((a) => a.activity_type !== "Κύρια");
+  const item = (a) => `<li><span class="kad">${escapeHTML(a.activity_id)}</span> ${escapeHTML(a.description || "")}</li>`;
+  const address = [c.street, c.street_number].filter(Boolean).join(" ") + (c.zip_code ? `, ${c.zip_code}` : "");
+  const map = c.latitude != null && c.longitude != null
+    ? `<a href="https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=18/${c.latitude}/${c.longitude}" target="_blank" rel="noopener noreferrer">Χάρτης OpenStreetMap ↗</a>`
+    : "";
+  return `<p class="eyebrow">${row ? `#${number(row.rank)} · #${number(row.profile_rank)} στο ${escapeHTML(row.profile_id)} · ταίριασμα ${percent(row.score)}` : "ΣΤΟΙΧΕΙΑ ΕΠΙΧΕΙΡΗΣΗΣ"}</p>`
+    + `<h2 id="company-title">${escapeHTML(c.company_name_el)}</h2>`
+    + (row ? `<p class="reading-hint">${escapeHTML(row.rationale)}</p>` : "")
+    + `<dl class="company-facts"><dt>ΑΦΜ</dt><dd>${escapeHTML(c.vat)}</dd><dt>Νομική μορφή</dt><dd>${escapeHTML(c.legal_type || "—")}</dd>`
+    + `<dt>Διεύθυνση</dt><dd>${escapeHTML(address || "—")}<br><small>${escapeHTML([c.city, c.municipality_name, c.prefecture_name].filter(Boolean).join(" · "))}</small></dd>`
+    + `<dt>Ίδρυση / έναρξη</dt><dd>${escapeHTML(String(c.incorporation_date || "—").slice(0, 10))}${String(c.is_branch) === "1" ? " · υποκατάστημα" : ""}</dd>`
+    + (c.gemi_status ? `<dt>ΓΕΜΗ</dt><dd>${escapeHTML(GEMI_TEXT[c.gemi_status.status] || c.gemi_status.status)}</dd>` : "")
+    + `</dl>${map}`
+    + `<h3>Κύρια δραστηριότητα</h3><ul class="kad-list">${primary.map(item).join("") || "<li>—</li>"}</ul>`
+    + (others.length ? `<details><summary>Δευτερεύουσες και βοηθητικές δραστηριότητες (${others.length})</summary><ul class="kad-list">${others.map(item).join("")}</ul>${others.length > 20 ? '<p class="caption">Πάνω από 20 δευτερεύουσες: στην ανάλυση μετράει μόνο η κύρια δραστηριότητα, γιατί τόσοι ΚΑΔ είναι συνήθως θόρυβος.</p>' : ""}</details>` : "")
+    + `<p class="caption">Πηγή: ΓΕΜΗ Open Data (δεδομένα διαγωνισμού). Επιβεβαιώστε την πραγματική δραστηριότητα πριν την επικοινωνία.</p>`;
+}
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".company-open");
+  if (!button) return;
+  const id = button.dataset.company;
+  const dialog = $("company-dialog");
+  $("company-body").innerHTML = '<p class="caption">Φόρτωση στοιχείων…</p>';
+  dialog.showModal();
+  try {
+    const company = await request(`/api/companies/${encodeURIComponent(id)}`);
+    $("company-body").innerHTML = companyCard(company, shownRows.get(String(id)));
+  } catch (err) {
+    $("company-body").innerHTML = `<p class="alert error">${escapeHTML(err.message)}</p>`;
+  }
+});
+
 // The table pages through the run stored in SQLite (/api/runs/{id}/lookalikes); filters run server-side.
 let tableTicket = 0,
   searchTimer = null;
@@ -487,6 +527,11 @@ async function renderCandidates() {
   if (profile) params.set("profile", profile);
   if (query) params.set("q", query);
   if (liveFilter) params.set("live", liveFilter);
+  // The CSV export uses the same filters, without paging.
+  const exportParams = new URLSearchParams(params);
+  exportParams.delete("offset");
+  exportParams.delete("limit");
+  $("export-filtered").href = `/api/runs/${encodeURIComponent(jobId)}/lookalikes.csv?${exportParams}`;
   let data;
   try {
     data = await request(`/api/runs/${encodeURIComponent(jobId)}/lookalikes?${params}`);
@@ -502,11 +547,12 @@ async function renderCandidates() {
     return renderCandidates();
   }
   $("filtered-count").textContent = number(data.total);
+  data.rows.forEach((row) => shownRows.set(String(row.company_id), row));
   $("candidates-body").innerHTML =
     data.rows
       .map(
         (c) =>
-          `<tr><td>#${number(c.rank)}<small>#${number(c.profile_rank)} στο ${escapeHTML(c.profile_id)}</small></td><td><strong>${escapeHTML(c.company_name_el)}</strong>${liveBadge(c.vat, c)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
+          `<tr><td>#${number(c.rank)}<small>#${number(c.profile_rank)} στο ${escapeHTML(c.profile_id)}</small></td><td><button type="button" class="company-open" data-company="${escapeHTML(c.company_id)}">${escapeHTML(c.company_name_el)}</button>${liveBadge(c.vat, c)}<small>${escapeHTML(c.city)} · ΑΦΜ ${escapeHTML(c.vat)}</small></td><td><span class="tag">${escapeHTML(c.profile_id)}</span></td><td class="score">${percent(c.score)}<span class="score-bar"><i style="width:${Math.max(0, Math.min(100, c.score * 100))}%"></i></span></td><td>${escapeHTML(c.rationale)}</td></tr>`,
       )
       .join("") ||
     '<tr><td colspan="5">Δεν βρέθηκαν επιχειρήσεις για αυτά τα φίλτρα.</td></tr>';

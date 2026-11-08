@@ -1,234 +1,234 @@
 @charset "UTF-8";
 :root {
-  --green: #15594b;
-  --green-dark: #124b40;
-  --mint: #eef6f1;
-  --ink: #233b36;
-  --muted: #7a8882;
-  --line: #e4e9e3;
-  --paper: #f6f7f3;
+  --green: #2563eb;
+  --green-dark: #1e3a8a;
+  --mint: #eff6ff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --paper: #f8fafc;
   --white: #fff;
-  --gold: #b98c43;
-  --gold-text: #7f5c1f;
+  --gold: #d99343;
+  --gold-text: #783f1e;
   --radius: 12px;
   --surface: #fff;
   --on-accent: #fff;
-  --accent-text: var(--green);
-  --map-bg: #fafcf8;
-  --map-grid: #e4eadd;
-  --map-label: #8c9a85;
-  --map-sea: #eaf1f2;
-  --map-land: #fbfcf8;
-  --map-coast: #9db3a6;
-  --map-neighbour: #eef0ea;
-  --map-border: #d3dad2;
-  --danger: #b4432c;
+  --accent-text: #2563eb;
+  --map-bg: #f8f9fc;
+  --map-grid: #dce2eb;
+  --map-label: #848d9b;
+  --map-sea: #eaedf2;
+  --map-land: #f8f9fc;
+  --map-coast: #9ca5b4;
+  --map-neighbour: #eaecf0;
+  --map-border: #d2d5da;
+  --danger: #e11d48;
   color-scheme: light;
-  --text-1: #929d96;
-  --text-2: #6b7c73;
-  --tone-1: #f4f7f2;
-  --tone-2: #edf6ed;
-  --text-3: #c1c8c1;
+  --text-1: #91969e;
+  --text-2: #6a717d;
+  --tone-1: #f2f4f7;
+  --tone-2: #edf0f6;
+  --text-3: #c1c4c8;
   --tone-3: #eeeede;
   --text-4: #65674a;
-  --text-5: #7a8d7e;
-  --text-6: #73847a;
-  --text-7: #799481;
-  --text-8: #8a968d;
-  --text-9: #7c9582;
-  --tone-4: #f3f6ef;
-  --text-10: #7c8a7b;
-  --tone-5: #fafcf8;
-  --tone-6: #b6cbb8;
-  --text-11: #8c998e;
-  --tone-7: #d8e5d7;
-  --text-12: #51816b;
-  --text-13: #89958c;
-  --text-14: #929b91;
-  --tone-8: #fbfcf8;
-  --tone-9: #dfe7da;
-  --tone-10: #dce5d6;
-  --text-15: #78917b;
-  --text-16: #6d8a74;
-  --text-17: #8a968b;
-  --text-18: #7d9479;
-  --text-19: #929b90;
-  --text-20: #728575;
+  --text-5: #79818e;
+  --text-6: #727985;
+  --text-7: #788395;
+  --text-8: #898e97;
+  --text-9: #7b8596;
+  --tone-4: #eff2f6;
+  --text-10: #7a818b;
+  --tone-5: #f8f9fc;
+  --tone-6: #b5becc;
+  --text-11: #8b919a;
+  --tone-7: #d6dce6;
+  --text-12: #4f6383;
+  --text-13: #888d96;
+  --text-14: #90959b;
+  --tone-8: #f8f9fc;
+  --tone-9: #d9dfe8;
+  --tone-10: #d5dce6;
+  --text-15: #778192;
+  --text-16: #6c788b;
+  --text-17: #898e97;
+  --text-18: #788395;
+  --text-19: #8f949c;
+  --text-20: #717986;
   --tone-11: #faf2dc;
   --tone-12: #e8d5a4;
   --text-21: #765e27;
   --tone-13: #fff1ec;
   --tone-14: #ebbcad;
   --text-22: #9c442c;
-  --tone-15: #c6ddcf;
-  --text-23: #5d7d69;
-  --text-24: #7b8e7d;
-  --tone-16: #bad2bd;
-  --text-25: #7b8a7d;
-  --tone-17: #fafbf8;
-  --tone-18: #edf0e9;
-  --text-26: #849180;
-  --tone-19: #e6eee3;
-  --tone-20: #c5d1c2;
-  --tone-21: #f0f4e9;
-  --text-27: #788571;
-  --text-28: #627868;
-  --text-29: #6e8072;
-  --text-30: #718370;
-  --tone-22: #f5f7f2;
+  --tone-15: #c5cfde;
+  --text-23: #5b697f;
+  --text-24: #7a828f;
+  --tone-16: #b9c3d3;
+  --text-25: #7a818b;
+  --tone-17: #f8f9fb;
+  --tone-18: #e9ecf0;
+  --text-26: #7f8692;
+  --tone-19: #e2e7ef;
+  --tone-20: #c1c8d2;
+  --tone-21: #e8edf5;
+  --text-27: #707886;
+  --text-28: #616a79;
+  --text-29: #6d7581;
+  --text-30: #6f7784;
+  --tone-22: #f2f4f7;
 }
 :root[data-theme="dark"] {
-  --green: #1f7a64;
-  --green-dark: #2a8a72;
-  --mint: #1a2a24;
-  --ink: #e2ebe6;
-  --muted: #94a59c;
-  --line: #27322d;
-  --paper: #0e1412;
-  --white: #161e1b;
-  --gold: #d0a85e;
-  --gold-text: #d0a85e;
-  --surface: #151d1a;
-  --accent-text: #6cc6a6;
-  --map-bg: #121916;
-  --map-grid: #25302b;
-  --map-label: #7f9188;
+  --green: #2563eb;
+  --green-dark: #3b82f6;
+  --mint: #13233f;
+  --ink: #e2e8f0;
+  --muted: #94a3b8;
+  --line: #1e293b;
+  --paper: #0b1120;
+  --white: #111a2e;
+  --gold: #f6c886;
+  --gold-text: #f6c886;
+  --surface: #0f172a;
+  --accent-text: #38bdf8;
+  --map-bg: #121519;
+  --map-grid: #242931;
+  --map-label: #7e8692;
   --map-sea: #0d1517;
-  --map-land: #1b2522;
-  --map-coast: #4f6b60;
-  --map-neighbour: #151c1a;
-  --map-border: #26302c;
-  --danger: #f08a73;
+  --map-land: #1a1f26;
+  --map-coast: #4e596c;
+  --map-neighbour: #15181c;
+  --map-border: #262a31;
+  --danger: #fb7185;
   color-scheme: dark;
   --text-1: #a5aaa7;
-  --text-2: #c9cdcb;
-  --tone-1: #1c2019;
-  --tone-2: #1a221a;
+  --text-2: #c9cacd;
+  --tone-1: #191c20;
+  --tone-2: #1a1d22;
   --text-3: #969c96;
   --tone-3: #333329;
   --text-4: #d4d5ce;
   --text-5: #b9bdba;
-  --text-6: #c1c5c3;
-  --text-7: #b4bcb7;
-  --text-8: #acb1ae;
-  --text-9: #b3bab4;
-  --tone-4: #1e211a;
+  --text-6: #c1c2c5;
+  --text-7: #b4b7bc;
+  --text-8: #acaeb1;
+  --text-9: #b3b6ba;
+  --tone-4: #1a1d21;
   --text-10: #bbbeba;
-  --tone-5: #191d16;
-  --tone-6: #364037;
+  --tone-5: #16191d;
+  --tone-6: #363a40;
   --text-11: #aaaeab;
-  --tone-7: #2d362d;
-  --text-12: #cdd6d2;
+  --tone-7: #2d3036;
+  --text-12: #cdd0d6;
   --text-13: #aeb2af;
   --text-14: #a7aba7;
-  --tone-8: #1b1d16;
-  --tone-9: #2f342c;
-  --tone-10: #30352c;
-  --text-15: #b7bdb8;
-  --text-16: #c0c6c2;
-  --text-17: #acb1ad;
-  --text-18: #b6bcb4;
+  --tone-8: #16191d;
+  --tone-9: #2c2f34;
+  --tone-10: #2c2f35;
+  --text-15: #b7b9bd;
+  --text-16: #c0c2c6;
+  --text-17: #acaeb1;
+  --text-18: #b4b7bc;
   --text-19: #a8aca7;
-  --text-20: #c1c6c2;
+  --text-20: #c1c3c6;
   --tone-11: #322f26;
   --tone-12: #413d31;
   --text-21: #d8d4ca;
   --tone-13: #1f1a18;
   --tone-14: #3e332f;
   --text-22: #d8cdca;
-  --tone-15: #303a34;
-  --text-23: #ced4d0;
-  --text-24: #b8bdb8;
-  --tone-16: #343e35;
+  --tone-15: #2f343a;
+  --text-23: #ced0d4;
+  --text-24: #b8babd;
+  --tone-16: #33383e;
   --text-25: #babebb;
-  --tone-17: #1b1d16;
-  --tone-18: #2c2f28;
+  --tone-17: #16191d;
+  --tone-18: #282b2f;
   --text-26: #b5b8b4;
-  --tone-19: #2b3228;
-  --tone-20: #353c33;
-  --tone-21: #21241b;
-  --text-27: #c3c6c2;
-  --text-28: #cfd3d0;
-  --text-29: #c6cac7;
-  --text-30: #c3c8c3;
-  --tone-22: #1d2019;
+  --tone-19: #272c32;
+  --tone-20: #33363c;
+  --tone-21: #1b1e24;
+  --text-27: #c2c3c6;
+  --text-28: #cfd0d3;
+  --text-29: #c6c7ca;
+  --text-30: #c3c5c8;
+  --tone-22: #191c20;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --green: #1f7a64;
-    --green-dark: #2a8a72;
-    --mint: #1a2a24;
-    --ink: #e2ebe6;
-    --muted: #94a59c;
-    --line: #27322d;
-    --paper: #0e1412;
-    --white: #161e1b;
-    --gold: #d0a85e;
-    --gold-text: #d0a85e;
-    --surface: #151d1a;
-    --accent-text: #6cc6a6;
-    --map-bg: #121916;
-    --map-grid: #25302b;
-    --map-label: #7f9188;
+    --green: #2563eb;
+    --green-dark: #3b82f6;
+    --mint: #13233f;
+    --ink: #e2e8f0;
+    --muted: #94a3b8;
+    --line: #1e293b;
+    --paper: #0b1120;
+    --white: #111a2e;
+    --gold: #f6c886;
+    --gold-text: #f6c886;
+    --surface: #0f172a;
+    --accent-text: #38bdf8;
+    --map-bg: #121519;
+    --map-grid: #242931;
+    --map-label: #7e8692;
     --map-sea: #0d1517;
-    --map-land: #1b2522;
-    --map-coast: #4f6b60;
-    --map-neighbour: #151c1a;
-    --map-border: #26302c;
-    --danger: #f08a73;
+    --map-land: #1a1f26;
+    --map-coast: #4e596c;
+    --map-neighbour: #15181c;
+    --map-border: #262a31;
+    --danger: #fb7185;
     color-scheme: dark;
     --text-1: #a5aaa7;
-    --text-2: #c9cdcb;
-    --tone-1: #1c2019;
-    --tone-2: #1a221a;
+    --text-2: #c9cacd;
+    --tone-1: #191c20;
+    --tone-2: #1a1d22;
     --text-3: #969c96;
     --tone-3: #333329;
     --text-4: #d4d5ce;
     --text-5: #b9bdba;
-    --text-6: #c1c5c3;
-    --text-7: #b4bcb7;
-    --text-8: #acb1ae;
-    --text-9: #b3bab4;
-    --tone-4: #1e211a;
+    --text-6: #c1c2c5;
+    --text-7: #b4b7bc;
+    --text-8: #acaeb1;
+    --text-9: #b3b6ba;
+    --tone-4: #1a1d21;
     --text-10: #bbbeba;
-    --tone-5: #191d16;
-    --tone-6: #364037;
+    --tone-5: #16191d;
+    --tone-6: #363a40;
     --text-11: #aaaeab;
-    --tone-7: #2d362d;
-    --text-12: #cdd6d2;
+    --tone-7: #2d3036;
+    --text-12: #cdd0d6;
     --text-13: #aeb2af;
     --text-14: #a7aba7;
-    --tone-8: #1b1d16;
-    --tone-9: #2f342c;
-    --tone-10: #30352c;
-    --text-15: #b7bdb8;
-    --text-16: #c0c6c2;
-    --text-17: #acb1ad;
-    --text-18: #b6bcb4;
+    --tone-8: #16191d;
+    --tone-9: #2c2f34;
+    --tone-10: #2c2f35;
+    --text-15: #b7b9bd;
+    --text-16: #c0c2c6;
+    --text-17: #acaeb1;
+    --text-18: #b4b7bc;
     --text-19: #a8aca7;
-    --text-20: #c1c6c2;
+    --text-20: #c1c3c6;
     --tone-11: #322f26;
     --tone-12: #413d31;
     --text-21: #d8d4ca;
     --tone-13: #1f1a18;
     --tone-14: #3e332f;
     --text-22: #d8cdca;
-    --tone-15: #303a34;
-    --text-23: #ced4d0;
-    --text-24: #b8bdb8;
-    --tone-16: #343e35;
+    --tone-15: #2f343a;
+    --text-23: #ced0d4;
+    --text-24: #b8babd;
+    --tone-16: #33383e;
     --text-25: #babebb;
-    --tone-17: #1b1d16;
-    --tone-18: #2c2f28;
+    --tone-17: #16191d;
+    --tone-18: #282b2f;
     --text-26: #b5b8b4;
-    --tone-19: #2b3228;
-    --tone-20: #353c33;
-    --tone-21: #21241b;
-    --text-27: #c3c6c2;
-    --text-28: #cfd3d0;
-    --text-29: #c6cac7;
-    --text-30: #c3c8c3;
-    --tone-22: #1d2019;
+    --tone-19: #272c32;
+    --tone-20: #33363c;
+    --tone-21: #1b1e24;
+    --text-27: #c2c3c6;
+    --text-28: #cfd0d3;
+    --text-29: #c6c7ca;
+    --text-30: #c3c5c8;
+    --tone-22: #191c20;
   }
 }
 * {
@@ -330,7 +330,7 @@ select:focus-visible {
   right: 5px;
   top: 3px;
   font-size: 19px;
-  color: #b4d7bf;
+  color: #b2c1d9;
 }
 .workspace {
   margin: 40px 0 27px;
@@ -416,7 +416,7 @@ nav {
   width: 6px;
   height: 6px;
   border-radius: 100%;
-  background: #4c9c6a;
+  background: #486aa0;
   box-shadow: 0 0 0 4px var(--tone-2);
 }
 .side-bottom p {
@@ -674,7 +674,7 @@ h3 {
   padding: 13px 18px;
 }
 .primary:hover {
-  background: #0b4237;
+  background: #081f45;
 }
 .outline {
   background: var(--surface);
@@ -750,8 +750,8 @@ button:disabled {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  box-shadow: 0 7px 15px #15594b15;
-  color: #d7e9d7;
+  box-shadow: 0 7px 15px #122e5c15;
+  color: #d6deea;
   display: grid;
   place-items: center;
   font-size: 30px;
@@ -760,7 +760,7 @@ button:disabled {
   width: 9px;
   height: 9px;
   border: 2px solid var(--tone-5);
-  background: #84a38a;
+  background: #8290a5;
   border-radius: 50%;
   position: absolute;
   box-shadow: 0 0 0 1px var(--tone-10);
@@ -794,7 +794,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--text-15);
-  box-shadow: 0 2px 5px #233b3603;
+  box-shadow: 0 2px 5px #222c3c03;
 }
 .label-one {
   left: 0;
@@ -1121,7 +1121,7 @@ td:first-child {
 .score-bar i {
   height: 100%;
   display: block;
-  background: #719379;
+  background: #6f7e95;
   border-radius: 4px;
 }
 .empty-state {
@@ -2335,4 +2335,121 @@ details.technical > summary {
 }
 .recall-story strong {
   color: var(--accent-text);
+}
+
+/* ------------------------------------------------ company card and export */
+.company-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-text);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.company-open:hover,
+.company-open:focus-visible {
+  text-decoration-color: currentColor;
+}
+#export-filtered {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.company-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+.company-dialog::backdrop {
+  background: rgba(10, 20, 17, 0.45);
+}
+.company-dialog h2 {
+  margin: 4px 0 12px;
+}
+.company-dialog h3 {
+  margin: 18px 0 6px;
+  font-size: 14px;
+}
+.company-dialog form {
+  margin-top: 18px;
+  text-align: right;
+}
+.company-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.company-facts dt {
+  color: var(--muted);
+}
+.company-facts dd {
+  margin: 0;
+}
+.kad-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.kad-list .kad {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------- Bizcover brand */
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+}
+.brand-word {
+  color: var(--ink);
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+.brand-cover {
+  color: var(--accent-text);
+}
+.brand-ai {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 50%, #1e3a8a 100%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  vertical-align: 4px;
+}
+.login-banner {
+  margin: -34px -32px 24px;
+  padding: 18px 24px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: #2563eb;
+  text-align: center;
+}
+.login-banner img {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  margin: 0 auto;
+}
+@media (max-width: 720px) {
+  .brand-icon {
+    width: 35px;
+    height: 35px;
+  }
 }

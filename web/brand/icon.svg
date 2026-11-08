@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Blue Gradient for Search Lens Rim & Handle -->
+    <linearGradient id="lensBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1E3A8A" />
+    </linearGradient>
+
+    <!-- Accent Gradient for Handle Connector & AI Sparkles -->
+    <linearGradient id="accentCyan" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#67E8F9" />
+    </linearGradient>
+
+    <!-- Cookie Base Gradient (Warm Golden Baked Dough) -->
+    <radialGradient id="cookieDough" cx="38%" cy="32%" r="65%">
+      <stop offset="0%" stop-color="#F6C886" />
+      <stop offset="65%" stop-color="#D99343" />
+      <stop offset="100%" stop-color="#B06821" />
+    </radialGradient>
+
+    <!-- Glass Interior Tint -->
+    <radialGradient id="glassTint" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EFF6FF" stop-opacity="0.95" />
+      <stop offset="80%" stop-color="#DBEAFE" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#93C5FD" stop-opacity="0.95" />
+    </radialGradient>
+
+    <!-- Linear Glass Glare -->
+    <linearGradient id="glassGlare" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.65" />
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.0" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for Main Icon -->
+    <filter id="dropShadow" x="-15%" y="-15%" width="135%" height="135%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0F172A" flood-opacity="0.22" />
+    </filter>
+
+    <!-- Subtle Shadow for Cookie inside Lens -->
+    <filter id="cookieShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1E3A8A" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <!-- Main Icon Group -->
+  <g filter="url(#dropShadow)">
+    
+    <!-- Magnifying Glass Handle -->
+    <g transform="rotate(-45 220 220)">
+      <!-- Connector Collar -->
+      <rect x="196" y="370" width="48" height="32" rx="8" fill="url(#accentCyan)" />
+      <!-- Main Handle Body -->
+      <rect x="188" y="394" width="64" height="145" rx="32" fill="url(#lensBlue)" />
+      <!-- Handle Highlight -->
+      <rect x="200" y="408" width="12" height="110" rx="6" fill="#FFFFFF" opacity="0.25" />
+    </g>
+
+    <!-- Search Lens Interior Backdrop -->
+    <circle cx="220" cy="220" r="156" fill="url(#glassTint)" />
+
+    <!-- ================= CUTE COOKIE ================= -->
+    <g filter="url(#cookieShadow)">
+      <!-- Organic Scalloped Cookie Edge -->
+      <path d="M 220,98 
+               C 242,96 258,104 278,114 
+               C 298,124 318,136 328,156 
+               C 338,176 344,198 342,220 
+               C 344,242 336,264 326,284 
+               C 316,304 298,320 278,330 
+               C 258,340 242,344 220,342 
+               C 198,344 176,338 156,328 
+               C 136,318 120,302 110,282 
+               C 100,262 96,242 98,220 
+               C 96,198 104,176 114,156 
+               C 124,136 140,120 160,110 
+               C 180,100 198,96 220,98 Z" fill="url(#cookieDough)" stroke="#9C5718" stroke-width="5" stroke-linejoin="round" />
+
+      <!-- Top Baking Highlight -->
+      <path d="M 140,152 A 105,105 0 0,1 295,148" fill="none" stroke="#FDE68A" stroke-width="6" stroke-linecap="round" opacity="0.45" />
+
+      <!-- Chocolate Chips (Arranged around the face) -->
+      <!-- Top Left Chip -->
+      <ellipse cx="165" cy="142" rx="16" ry="13" transform="rotate(-20 165 142)" fill="#4A2511" />
+      <ellipse cx="161" cy="139" rx="7" ry="4" transform="rotate(-20 161 139)" fill="#783F1E" />
+
+      <!-- Top Right Chip -->
+      <ellipse cx="268" cy="138" rx="14" ry="17" transform="rotate(25 268 138)" fill="#3D1E0D" />
+      <ellipse cx="265" cy="134" rx="5" ry="7" transform="rotate(25 265 134)" fill="#6B3618" />
+
+      <!-- Top Center Small Chip -->
+      <circle cx="216" cy="122" r="10" fill="#4A2511" />
+
+      <!-- Far Left Chip -->
+      <ellipse cx="125" cy="198" rx="12" ry="15" transform="rotate(12 125 198)" fill="#3D1E0D" />
+
+      <!-- Far Right Chip -->
+      <ellipse cx="314" cy="202" rx="14" ry="11" transform="rotate(-15 314 202)" fill="#4A2511" />
+
+      <!-- Bottom Left Chip -->
+      <ellipse cx="152" cy="288" rx="17" ry="13" transform="rotate(30 152 288)" fill="#4A2511" />
+      <ellipse cx="149" cy="285" rx="7" ry="4" transform="rotate(30 149 285)" fill="#783F1E" />
+
+      <!-- Bottom Right Chip -->
+      <ellipse cx="282" cy="292" rx="15" ry="13" transform="rotate(-25 282 292)" fill="#3D1E0D" />
+      <ellipse cx="279" cy="289" rx="6" ry="4" transform="rotate(-25 279 289)" fill="#6B3618" />
+
+      <!-- Bottom Center Small Chip -->
+      <circle cx="218" cy="314" r="11" fill="#4A2511" />
+
+      <!-- ================= CUTE FACE ================= -->
+      <!-- Rosy Cheeks -->
+      <ellipse cx="150" cy="238" rx="16" ry="10" fill="#F43F5E" opacity="0.55" />
+      <ellipse cx="290" cy="238" rx="16" ry="10" fill="#F43F5E" opacity="0.55" />
+
+      <!-- Left Eye -->
+      <circle cx="174" cy="212" r="17" fill="#271206" />
+      <circle cx="168" cy="205" r="6.5" fill="#FFFFFF" />
+      <circle cx="180" cy="218" r="3" fill="#FFFFFF" />
+
+      <!-- Right Eye -->
+      <circle cx="266" cy="212" r="17" fill="#271206" />
+      <circle cx="260" cy="205" r="6.5" fill="#FFFFFF" />
+      <circle cx="272" cy="218" r="3" fill="#FFFFFF" />
+
+      <!-- Cute Happy Smile -->
+      <path d="M 196,232 Q 220,258 244,232" fill="none" stroke="#271206" stroke-width="8" stroke-linecap="round" />
+      <!-- Sweet Tongue Detail -->
+      <path d="M 207,242 Q 220,256 233,242 Z" fill="#FB7185" />
+    </g>
+
+    <!-- ================= LENS GLASS & RIM ================= -->
+    <!-- Diagonal Glass Sheen -->
+    <circle cx="220" cy="220" r="148" fill="url(#glassGlare)" />
+
+    <!-- Crisp Curved Specular Glint (Top Left) -->
+    <path d="M 118,155 A 122,122 0 0,1 245,98" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" opacity="0.7" />
+    <circle cx="272" cy="105" r="6" fill="#FFFFFF" opacity="0.7" />
+
+    <!-- Outer Blue Gradient Search Lens Ring -->
+    <circle cx="220" cy="220" r="158" fill="none" stroke="url(#lensBlue)" stroke-width="34" />
+
+    <!-- Inner Metallic/Cyan Bevel Ring -->
+    <circle cx="220" cy="220" r="141" fill="none" stroke="#BAE6FD" stroke-width="3" opacity="0.75" />
+
+    <!-- AI Discovery Sparkle (Top Right of Lens) -->
+    <path d="M 355,65 Q 355,95 385,95 Q 355,95 355,125 Q 355,95 325,95 Q 355,95 355,65 Z" fill="url(#accentCyan)" />
+    <circle cx="355" cy="95" r="5" fill="#FFFFFF" />
+  </g>
+</svg>
