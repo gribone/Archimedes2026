@@ -2259,3 +2259,80 @@ button.avatar[aria-expanded="true"] {
     align-items: flex-start;
   }
 }
+
+/* ------------------------------------------------ plain-language additions */
+.profile-facts {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.hint-mark {
+  color: var(--muted);
+  font-size: 11px;
+  cursor: help;
+}
+.metrics [title],
+th[title] {
+  cursor: help;
+}
+.certainty {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+  border: 1px solid var(--line);
+}
+.certainty-high {
+  background: var(--green);
+  color: var(--on-accent);
+  border-color: var(--green);
+}
+.certainty-mid {
+  background: var(--mint);
+  color: var(--accent-text);
+}
+.certainty-low {
+  background: transparent;
+  color: var(--gold-text);
+}
+.evidence-table td small {
+  color: var(--muted);
+}
+.profile-prospects {
+  margin: 4px 0 18px;
+}
+details.technical {
+  margin-top: 16px;
+  font-size: 13px;
+}
+details.technical > summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.reading-hint {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--green);
+  background: var(--mint);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.recall-story {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.recall-story p {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--mint);
+  color: var(--ink);
+}
+.recall-story strong {
+  color: var(--accent-text);
+}

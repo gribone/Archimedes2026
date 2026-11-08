@@ -25,10 +25,9 @@
       <div class="workspace">
         <span class="workspace-icon">ΕΛ</span>
         <div>Ελληνική αγορά<small>HORECA · 2020–2024</small></div>
-        <span class="muted">⌄</span>
       </div>
-      <p class="nav-label">WORKSPACE</p>
-      <nav aria-label="Workspace">
+      <p class="nav-label">ΜΕΝΟΥ</p>
+      <nav aria-label="Μενού">
         <button class="nav active" data-view="overview">
           <span>◫</span>Επισκόπηση</button
         ><button class="nav" data-view="profiles">
@@ -40,7 +39,7 @@
         </button>
       </nav>
       <div class="side-bottom">
-        <div class="local-indicator"><i></i> Local intelligence</div>
+        <div class="local-indicator"><i></i> Τοπική ανάλυση</div>
         <p>Η ανάλυση παραμένει<br />στον υπολογιστή σας.</p>
         <div class="side-divider"></div>
         <small>ForceCRM Challenge<br />NKUA · November 2026</small>
@@ -49,13 +48,13 @@
     <div class="shell">
       <header class="topbar">
         <div>
-          <span class="muted">Workspace</span><span class="slash">/</span
+          <span class="muted">ForceCRM</span><span class="slash">/</span
           ><span id="breadcrumb">Επισκόπηση</span>
         </div>
         <div class="top-right">
           <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Σκοτεινό θέμα">☾</button
           ><button id="tour-button" class="theme-toggle" type="button" aria-label="Ξενάγηση στην εφαρμογή" title="Ξενάγηση στην εφαρμογή">?</button
-          ><span class="pill">● &nbsp; Local runtime</span
+          ><span class="pill" title="Όλο το AI τρέχει σε αυτόν τον υπολογιστή, χωρίς cloud">● &nbsp; Τοπική εκτέλεση</span
           ><div class="user-menu">
             <button id="user-button" class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="user-dropdown" aria-label="Λογαριασμός">FC</button>
             <div id="user-dropdown" class="user-dropdown hidden" role="menu">
@@ -398,7 +397,8 @@
                   />
                 </div>
               </div>
-              <div id="live-bar" class="live-bar hidden" role="status">
+              <p class="reading-hint">Ξεκινήστε από την κορυφή: η λίστα είναι ταξινομημένη από την πιο ταιριαστή επιχείρηση. Επιλέξτε ένα προφίλ για να δείτε μόνο τις δικές του ευκαιρίες· η στήλη «Γιατί προτείνεται» λέει τι κοινό έχει κάθε επιχείρηση με τους πελάτες σας.</p>
+                <div id="live-bar" class="live-bar hidden" role="status">
                 <span id="live-message"></span
                 ><span class="live-actions"
                   ><button type="button" id="live-start" class="text-button">
@@ -415,7 +415,7 @@
                       <th>Κατάταξη<small>συνολική · στο προφίλ</small></th>
                       <th>Επιχείρηση</th>
                       <th>Προφίλ</th>
-                      <th>Σκορ κατάταξης</th>
+                      <th title="Συνδυάζει την ομοιότητα με τους πελάτες του προφίλ και το πόσο συχνά παρόμοιες επιχειρήσεις είναι ήδη πελάτες σας. Δεν είναι πιθανότητα αγοράς.">Ταίριασμα <span class="hint-mark">ⓘ</span></th>
                       <th>Γιατί προτείνεται</th>
                     </tr>
                   </thead>

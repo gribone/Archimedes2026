@@ -14,6 +14,32 @@ const percent = (n) =>
     style: "percent",
     maximumFractionDigits: 1,
   }).format(n);
+// Plain-language helpers: Greek decimals and a certainty label instead of raw p/q-values.
+const fixed = (n, digits = 1) =>
+  new Intl.NumberFormat("el-GR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+const times = (lift) => `${fixed(lift, 1)}×`;
+function certainty(q) {
+  const [label, level] = q < 0.001 ? ["Πολύ υψηλή", "high"] : q < 0.01 ? ["Υψηλή", "mid"] : ["Επαρκής", "low"];
+  return `<span class="certainty certainty-${level}" title="Στατιστικός έλεγχος Fisher με διόρθωση πολλαπλών ελέγχων: q = ${q.toExponential(1)}. Όσο μικρότερο, τόσο λιγότερο πιθανό να είναι τύχη.">${label}</span>`;
+}
+function share(count, total, rate) {
+  return `${number(count)} από ${number(total)} <small>(${percent(rate)})</small>`;
+}
+function textStatus(p) {
+  const llm = p.llm || {};
+  if (p.ai_generated && typeof llm.llm_sentences === "number") {
+    const total = llm.llm_sentences + llm.template_sentences;
+    return `Γράφτηκε από τοπικό μοντέλο AI (${escapeHTML(llm.model)}): ${llm.llm_sentences} από ${total} προτάσεις· οι υπόλοιπες είναι επαληθευμένα πρότυπα. Κάθε αριθμός ελέγχθηκε με τα δεδομένα.`;
+  }
+  if (state.report.demo) return "Demo: σταθερό πρότυπο κειμένου, χωρίς μοντέλο AI.";
+  if (!p.ai_generated) return "Επαληθευμένα πρότυπα κειμένου: το τοπικό μοντέλο AI δεν πέρασε τους ελέγχους.";
+  return escapeHTML(p.description_status || "");
+}
+const TIPS = {
+  stability: "Πόσο συχνά ξαναβρίσκεται το ίδιο προφίλ όταν επαναλαμβάνουμε την ανάλυση 20 φορές με τυχαίες παραλλαγές του πελατολογίου (bootstrap).",
+  fit: "Πόσο κοντά είναι κατά μέσο όρο οι πελάτες στο «κέντρο» του προφίλ. Δείκτης ομοιότητας, όχι πιθανότητα αγοράς.",
+  quality: "Ισχυρή: σταθερότητα τουλάχιστον 75% και τουλάχιστον 2 στατιστικά τεκμηριωμένα χαρακτηριστικά.",
+};
 let state = null,
   jobId = null,
   page = 0,
@@ -359,7 +385,7 @@ function summary(p) {
 }
 function activityMix(p) {
   if (!p.activity_mix || !p.activity_mix.length) return "";
-  return `<h2>Συχνότερες κύριες δραστηριότητες</h2><p class="caption">Περιγραφικά ποσοστά ΑΦΜ. Στατιστικά τεκμηριωμένη διαφορά υπάρχει μόνο όπου η δραστηριότητα εμφανίζεται και στον πίνακα χαρακτηριστικών.</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Κύρια δραστηριότητα</th><th>Στο προφίλ</th><th>Στο σύνολο</th><th>Αναλογία</th></tr></thead><tbody>${p.activity_mix.map((a) => `<tr><td>${escapeHTML(a.label)}</td><td>${a.count}/${a.total} (${percent(a.profile_rate)})</td><td>${percent(a.universe_rate)}</td><td>${a.lift.toFixed(2)}×</td></tr>`).join("")}</tbody></table></div>`;
+  return `<h2>Τι δουλειά κάνουν οι πελάτες του</h2><p class="caption">Οι συχνότερες κύριες δραστηριότητες, σε σύγκριση με όλη την αγορά εστίασης.</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Κύρια δραστηριότητα</th><th>Πελάτες του προφίλ</th><th>Σε όλη την αγορά</th><th>Πόσο συχνότερα</th></tr></thead><tbody>${p.activity_mix.map((a) => `<tr><td>${escapeHTML(a.label)}</td><td>${share(a.count, a.total, a.profile_rate)}</td><td>${percent(a.universe_rate)}</td><td>${times(a.lift)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function portfolioTraits() {
@@ -369,8 +395,36 @@ function portfolioTraits() {
   const count = rows.length
     ? `${rows.length} ${rows.length === 1 ? "κοινό χαρακτηριστικό" : "κοινά χαρακτηριστικά"} πέρα από τη γεωγραφία`
     : "κανένα κοινό χαρακτηριστικό πέρα από τη γεωγραφία";
-  return `<details class="portfolio-traits"><summary><span class="portfolio-traits-label">ΑΠΟ ΟΛΟ ΤΟ ΠΕΛΑΤΟΛΟΓΙΟ</span><span class="portfolio-traits-count">${count}</span></summary><div class="portfolio-traits-body"><p class="description">Τα προφίλ χωρίζουν τους πελάτες κυρίως ανά περιοχή. Εδώ φαίνονται δραστηριότητες, νομικές μορφές και άλλα επιχειρηματικά χαρακτηριστικά που υπερεκπροσωπούνται σε όλο το πελατολόγιο σε σχέση με το σύνολο της εστίασης.</p><p class="caption">Fisher ανά ΑΦΜ · διόρθωση Benjamini–Hochberg σε ${number(state.report.portfolio_traits_tested || 0)} ελέγχους · q ≤ 0,05, ≥ 5 ΑΦΜ, lift ≥ 1,2</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Χαρακτηριστικό</th><th>Στο πελατολόγιο</th><th>Στο σύνολο</th><th>Lift</th><th>q-value</th></tr></thead><tbody>${rows.map((f) => `<tr><td>${escapeHTML(f.label)}</td><td>${f.count}/${f.total} (${percent(f.profile_rate)})</td><td>${percent(f.universe_rate)}</td><td>${f.lift.toFixed(2)}×</td><td>${f.q_value.toExponential(2)}</td></tr>`).join("") || '<tr><td colspan="5">Κανένα επιχειρηματικό χαρακτηριστικό δεν διαφέρει στατιστικά από την αγορά.</td></tr>'}</tbody></table></div></div></details>`;
+  return `<details class="portfolio-traits"><summary><span class="portfolio-traits-label">ΑΠΟ ΟΛΟ ΤΟ ΠΕΛΑΤΟΛΟΓΙΟ</span><span class="portfolio-traits-count">${count}</span></summary><div class="portfolio-traits-body"><p class="description">Τα προφίλ χωρίζουν τους πελάτες κυρίως ανά περιοχή. Εδώ φαίνονται δραστηριότητες, νομικές μορφές και άλλα επιχειρηματικά χαρακτηριστικά που υπερεκπροσωπούνται σε όλο το πελατολόγιο σε σχέση με το σύνολο της εστίασης.</p><p class="caption">Εμφανίζονται μόνο όσα πέρασαν στατιστικό έλεγχο (${number(state.report.portfolio_traits_tested || 0)} έλεγχοι, με διόρθωση για πολλαπλές συγκρίσεις).</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Χαρακτηριστικό</th><th>Πελάτες σας</th><th>Σε όλη την αγορά</th><th>Πόσο συχνότερα</th><th>Βεβαιότητα</th></tr></thead><tbody>${rows.map((f) => `<tr><td>${escapeHTML(f.label)}</td><td>${share(f.count, f.total, f.profile_rate)}</td><td>${percent(f.universe_rate)}</td><td>${times(f.lift)}</td><td>${certainty(f.q_value)}</td></tr>`).join("") || '<tr><td colspan="5">Κανένα επιχειρηματικό χαρακτηριστικό δεν διαφέρει στατιστικά από την αγορά.</td></tr>'}</tbody></table></div></div></details>`;
 }
+
+function profileCard(p, index) {
+  const aiTag = p.ai_generated ? "AI · ΤΟΠΙΚΟ ΜΟΝΤΕΛΟ" : state.report.demo ? "DEMO · ΠΡΟΤΥΠΟ" : "ΕΠΑΛΗΘΕΥΜΕΝΟ ΠΡΟΤΥΠΟ";
+  const facts = `${number(p.customer_count)} πελάτες · ${percent(p.revenue_share)} του τζίρου · σταθερότητα ${percent(p.stability)}`;
+  const traits = p.significant_features
+    .map((f) => `<tr><td>${escapeHTML(f.label)}</td><td>${share(f.count, f.total, f.profile_rate)}</td><td>${percent(f.universe_rate)}</td><td>${times(f.lift)}</td><td>${certainty(f.q_value)}</td></tr>`)
+    .join("") || '<tr><td colspan="5">Δεν βρέθηκαν χαρακτηριστικά με επαρκή στατιστική τεκμηρίωση.</td></tr>';
+  const technical = p.significant_features
+    .map((f) => `<tr><td>${escapeHTML(f.label)}</td><td>${fixed(f.lift, 2)}</td><td>${f.p_value.toExponential(2)}</td><td>${f.q_value.toExponential(2)}</td></tr>`)
+    .join("");
+  return `<details class="card profile-detail"${index === 0 ? " open" : ""}><summary><div><span class="tag">${escapeHTML(p.profile_id)}</span><h3>${escapeHTML(p.title)}</h3><p class="profile-facts">${facts}</p></div><span class="tag" title="Το κείμενο γράφτηκε από τοπικό μοντέλο AI (EU AI Act, άρθρο 50)">${aiTag}</span></summary>`
+    + `<p class="description">${escapeHTML(p.description)}</p><p class="caption">${textStatus(p)}</p>`
+    + `<div class="metrics"><div><strong>${number(p.customer_count)}</strong><small>πελάτες · ${number(p.venue_count)} καταστήματα</small></div><div><strong>${percent(p.revenue_share)}</strong><small>του τζίρου σας</small></div><div title="${TIPS.stability}"><strong>${percent(p.stability)}</strong><small>σταθερότητα <span class="hint-mark">ⓘ</span></small></div><div title="${TIPS.fit}"><strong>${percent(p.confidence_score)}</strong><small>ταίριασμα πελατών <span class="hint-mark">ⓘ</span></small></div><div title="${TIPS.quality}"><strong>${p.quality === "strong" ? "Ισχυρή" : "Περιορισμένη"}</strong><small>τεκμηρίωση <span class="hint-mark">ⓘ</span></small></div></div>`
+    + `<button type="button" class="button primary profile-prospects" data-profile="${escapeHTML(p.profile_id)}">Δείτε τις ευκαιρίες αυτού του προφίλ <span>→</span></button>`
+    + activityMix(p)
+    + `<h2>Τι τους κάνει ξεχωριστούς</h2><p class="caption">Χαρακτηριστικά που εμφανίζονται στους πελάτες του προφίλ πολύ συχνότερα από ό,τι στην αγορά (τουλάχιστον 5 πελάτες, 1,2× και στατιστικός έλεγχος).</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Χαρακτηριστικό</th><th>Πελάτες του προφίλ</th><th>Σε όλη την αγορά</th><th>Πόσο συχνότερα</th><th>Βεβαιότητα</th></tr></thead><tbody>${traits}</tbody></table></div>`
+    + `<details class="technical"><summary>Τεχνικές λεπτομέρειες (για ελεγκτές)</summary>${technical ? `<div class="table-scroll"><table class="evidence-table"><thead><tr><th>Χαρακτηριστικό</th><th>Lift</th><th>p-value</th><th>q-value (Benjamini–Hochberg)</th></tr></thead><tbody>${technical}</tbody></table></div>` : ""}<pre>${escapeHTML(JSON.stringify({ claims: p.claims, llm: p.llm, stability: p.stability_detail, acceptance_cosine_distance: p.acceptance_cosine_distance }, null, 2))}</pre></details></details>`;
+}
+
+// "See this profile's prospects": switch to the prospects view filtered to that profile.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest(".profile-prospects");
+  if (!button) return;
+  const filter = $("profile-filter");
+  filter.value = button.dataset.profile;
+  filter.dispatchEvent(new Event("input", { bubbles: true }));
+  showView("prospects");
+});
 
 function render() {
   const r = state.report;
@@ -389,12 +443,7 @@ function render() {
   document
     .querySelectorAll(".empty-state")
     .forEach((el) => el.classList.add("hidden"));
-  $("profiles-list").innerHTML = portfolioTraits() + state.profiles
-    .map(
-      (p) =>
-        `<details class="card profile-detail" open><summary><div><span class="tag">${escapeHTML(p.profile_id)}</span><h3>${escapeHTML(p.title)}</h3></div><span class="tag">${p.ai_generated ? "AI-GENERATED · LOCAL LLM" : (state.report.demo ? "DEMO · TEMPLATE" : "ΕΠΑΛΗΘΕΥΜΕΝΟ ΠΡΟΤΥΠΟ")}</span></summary><p class="description">${escapeHTML(p.description)}</p><p class="caption">${escapeHTML(p.description_status || "")}</p><div class="metrics"><div><strong>${number(p.customer_count)}</strong><small>ΑΦΜ · ${number(p.venue_count)} καταστήματα</small></div><div><strong>${percent(p.revenue_share)}</strong><small>μερίδιο τζίρου</small></div><div><strong>${percent(p.stability)}</strong><small>σταθερότητα bootstrap</small></div><div><strong>${percent(p.confidence_score)}</strong><small>σχετική εμπιστοσύνη προσαρμογής</small></div><div><strong>${p.quality === "strong" ? "Ισχυρή" : "Περιορισμένη"}</strong><small>ποιότητα τεκμηρίωσης</small></div></div>${activityMix(p)}<h2>Χαρακτηριστικά με αυξημένη παρουσία</h2><p class="caption">Μονάδα μέτρησης: μοναδικά ΑΦΜ · Fisher + συνολική διόρθωση Benjamini–Hochberg · διερευνητική ανάλυση</p><div class="table-scroll"><table class="evidence-table"><thead><tr><th>Χαρακτηριστικό</th><th>Στο προφίλ</th><th>Στο σύνολο</th><th>Lift</th><th>p-value</th><th>q-value</th></tr></thead><tbody>${p.significant_features.map((f) => `<tr><td>${escapeHTML(f.label)}</td><td>${f.count}/${f.total} (${percent(f.profile_rate)})</td><td>${percent(f.universe_rate)}</td><td>${f.lift.toFixed(2)}×</td><td>${f.p_value.toExponential(2)}</td><td>${f.q_value.toExponential(2)}</td></tr>`).join("") || '<tr><td colspan="6">Δεν βρέθηκαν χαρακτηριστικά με επαρκή στατιστική τεκμηρίωση.</td></tr>'}</tbody></table></div><details><summary>Προέλευση κάθε πρότασης και παράμετροι αναπαραγωγής</summary><pre>${escapeHTML(JSON.stringify({ claims: p.claims, llm: p.llm, stability: p.stability_detail, acceptance_cosine_distance: p.acceptance_cosine_distance }, null, 2))}</pre></details></details>`,
-    )
-    .join("");
+  $("profiles-list").innerHTML = portfolioTraits() + state.profiles.map(profileCard).join("");
   $("profile-filter").innerHTML =
     '<option value="">Όλα τα προφίλ</option>' +
     state.profiles
@@ -621,6 +670,12 @@ function drawMap() {
     ctx.fillText(id === "inactive" ? "Ανενεργή (ΓΕΜΗ)" : id, x + 14, y);
   });
 }
+function recallStory(v) {
+  const held = v?.held_out_customers;
+  if (!held || !v.metrics) return "";
+  return `<div class="recall-story">${v.metrics.map((m) => `<p><strong>${number(Math.round(m.recall * held))} από ${number(held)}</strong> κρυμμένους πελάτες βρέθηκαν στις πρώτες ${number(m.k)} προτάσεις. Η απλή μέθοδος σύγκρισης βρίσκει ${number(Math.round(m.baseline_recall * held))}.</p>`).join("")}</div>`;
+}
+
 function renderValidation() {
   const r = state.report,
     v = r.validation;
@@ -630,7 +685,7 @@ function renderValidation() {
   const blockWeights = r.feature_configuration.block_weights;
   const customWeights = Boolean(r.feature_configuration.custom_weights);
   $("validation-content").innerHTML =
-    `<div class="validation-grid">${coverage}<section class="card"><h2>Εσωτερικός έλεγχος ανάκτησης</h2><p>20% των ΑΦΜ αποκρύπτονται πριν από την εκπαίδευση. Όλα τα καταστήματά τους παραμένουν μαζί. Αυτός δεν είναι ο κρυφός έλεγχος του διοργανωτή.</p>${r.demo ? "<p><strong>Demo δεδομένα: οι παρακάτω τιμές δεν μετρούν πραγματική απόδοση πωλήσεων.</strong></p>" : ""}${customWeights ? `<p class="weights-warning">⚠ Η ανάλυση έγινε με προσαρμοσμένα βάρη. Η στήλη «Προεπιλεγμένα βάρη» δείχνει τον ίδιο έλεγχο με τα ελεγμένα βάρη.</p>` : ""}<table><thead><tr><th>Μέτρο</th><th>Μοντέλο</th>${customWeights ? "<th>Προεπιλεγμένα βάρη</th>" : ""}<th>Baseline</th><th>Διαφορά</th></tr></thead><tbody>${metrics.map((m) => `<tr><td>Recall@${m.k}</td><td>${percent(m.recall)}</td>${customWeights ? `<td>${m.default_weights_recall == null ? "—" : percent(m.default_weights_recall)}</td>` : ""}<td>${percent(m.baseline_recall)}</td><td>${(m.absolute_uplift * 100).toFixed(1)} π.μ.</td></tr>`).join("")}</tbody></table><p>Baseline: συχνότητα της κύριας δραστηριότητας στο πελατολόγιο εκπαίδευσης.</p></section><section class="card"><h2>Ποιότητα δεδομένων και ανάλυσης</h2><ul><li>${number(r.data_audit.venues)} καταστήματα · ${number(r.data_audit.businesses)} ΑΦΜ</li><li>Κάλυψη GPS: ${percent(r.data_audit.gps_coverage)}</li><li>Μέσο Adjusted Rand Index: ${r.bootstrap_ari.toFixed(3)}</li><li>${number(r.hypotheses_tested)} στατιστικές υποθέσεις εξετάστηκαν</li><li>${number(r.rejected_venues)} καταστήματα χωρίς αντιστοίχιση (NONE)</li><li>Διάρκεια: ${r.performance.seconds.toFixed(1)} δευτ. · RAM στο τέλος: ${r.performance.rss_mb_at_finish.toFixed(0)} MB</li></ul></section><section class="card wide"><h2>Πώς λειτουργεί — και πού χρειάζεται προσοχή</h2><p>Η ομοιότητα συνδυάζει δραστηριότητες (${percent(blockWeights.activity)}), γεωγραφία (${percent(blockWeights.geography)}), νομική μορφή (${percent(blockWeights.legal_type)}) και ηλικία (${percent(blockWeights.age)})${customWeights ? " — προσαρμοσμένα βάρη" : ""}. Οι κύριες δραστηριότητες έχουν μεγαλύτερο βάρος από τις συναφείς δευτερεύουσες. Ο τζίρος κατανέμεται στα καταστήματα κάθε ΑΦΜ, ώστε να μην διπλομετράται.</p><p>Η στατιστική τεκμηρίωση είναι διερευνητική: οι ομάδες έχουν σχηματιστεί από τα ίδια δεδομένα. Μια σταθερή ομάδα δεν συνεπάγεται ότι όλοι οι πελάτες της έχουν την ίδια πραγματική δραστηριότητα. Ένα ΑΦΜ με διαφορετικά καταστήματα μπορεί να συμμετέχει σε περισσότερα προφίλ.</p><p>Η εφαρμογή προτείνει επιχειρήσεις για ανθρώπινη αξιολόγηση. Δεν υπολογίζει πιστοληπτική ικανότητα, φερεγγυότητα ή πιθανότητα αγοράς. Οι περιγραφές με ένδειξη AI παράγονται από τοπικό μοντέλο με βάση τα στοιχεία του προφίλ.</p><div class="downloads">${["profiles.json", "assignments.csv", "lookalikes.csv", "report.json"].map((f) => `<a class="button outline" href="/api/jobs/${jobId}/export/${f}">↓ ${f}</a>`).join(" ")}</div><details><summary>Πλήρης αναφορά μεθοδολογίας και αναπαραγωγής</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details></section></div>`;
+    `<div class="validation-grid">${coverage}<section class="card"><h2>Εσωτερικός έλεγχος ανάκτησης</h2><p>20% των ΑΦΜ αποκρύπτονται πριν από την εκπαίδευση. Όλα τα καταστήματά τους παραμένουν μαζί. Αυτός δεν είναι ο κρυφός έλεγχος του διοργανωτή.</p>${r.demo ? "<p><strong>Demo δεδομένα: οι παρακάτω τιμές δεν μετρούν πραγματική απόδοση πωλήσεων.</strong></p>" : ""}${customWeights ? `<p class="weights-warning">⚠ Η ανάλυση έγινε με προσαρμοσμένα βάρη. Η στήλη «Προεπιλεγμένα βάρη» δείχνει τον ίδιο έλεγχο με τα ελεγμένα βάρη.</p>` : ""}${recallStory(v)}<table><thead><tr><th>Μέτρο</th><th>Μοντέλο</th>${customWeights ? "<th>Προεπιλεγμένα βάρη</th>" : ""}<th>Baseline</th><th>Διαφορά</th></tr></thead><tbody>${metrics.map((m) => `<tr><td>Πρώτες ${number(m.k)} <small>(Recall@${m.k})</small></td><td>${percent(m.recall)}</td>${customWeights ? `<td>${m.default_weights_recall == null ? "—" : percent(m.default_weights_recall)}</td>` : ""}<td>${percent(m.baseline_recall)}</td><td>+${fixed(m.absolute_uplift * 100)} μονάδες</td></tr>`).join("")}</tbody></table><p>Baseline: συχνότητα της κύριας δραστηριότητας στο πελατολόγιο εκπαίδευσης.</p></section><section class="card"><h2>Ποιότητα δεδομένων και ανάλυσης</h2><ul><li>${number(r.data_audit.venues)} καταστήματα · ${number(r.data_audit.businesses)} ΑΦΜ</li><li>Κάλυψη GPS: ${percent(r.data_audit.gps_coverage)}</li><li>Μέσο Adjusted Rand Index: ${r.bootstrap_ari.toFixed(3)}</li><li>${number(r.hypotheses_tested)} στατιστικές υποθέσεις εξετάστηκαν</li><li>${number(r.rejected_venues)} καταστήματα χωρίς αντιστοίχιση (NONE)</li><li>Διάρκεια: ${r.performance.seconds.toFixed(1)} δευτ. · RAM στο τέλος: ${r.performance.rss_mb_at_finish.toFixed(0)} MB</li></ul></section><section class="card wide"><h2>Πώς λειτουργεί — και πού χρειάζεται προσοχή</h2><p>Η ομοιότητα συνδυάζει δραστηριότητες (${percent(blockWeights.activity)}), γεωγραφία (${percent(blockWeights.geography)}), νομική μορφή (${percent(blockWeights.legal_type)}) και ηλικία (${percent(blockWeights.age)})${customWeights ? " — προσαρμοσμένα βάρη" : ""}. Οι κύριες δραστηριότητες έχουν μεγαλύτερο βάρος από τις συναφείς δευτερεύουσες. Ο τζίρος κατανέμεται στα καταστήματα κάθε ΑΦΜ, ώστε να μην διπλομετράται.</p><p>Η στατιστική τεκμηρίωση είναι διερευνητική: οι ομάδες έχουν σχηματιστεί από τα ίδια δεδομένα. Μια σταθερή ομάδα δεν συνεπάγεται ότι όλοι οι πελάτες της έχουν την ίδια πραγματική δραστηριότητα. Ένα ΑΦΜ με διαφορετικά καταστήματα μπορεί να συμμετέχει σε περισσότερα προφίλ.</p><p>Η εφαρμογή προτείνει επιχειρήσεις για ανθρώπινη αξιολόγηση. Δεν υπολογίζει πιστοληπτική ικανότητα, φερεγγυότητα ή πιθανότητα αγοράς. Οι περιγραφές με ένδειξη AI παράγονται από τοπικό μοντέλο με βάση τα στοιχεία του προφίλ.</p><div class="downloads">${["profiles.json", "assignments.csv", "lookalikes.csv", "report.json"].map((f) => `<a class="button outline" href="/api/jobs/${jobId}/export/${f}">↓ ${f}</a>`).join(" ")}</div><details><summary>Πλήρης αναφορά μεθοδολογίας και αναπαραγωγής</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details></section></div>`;
 }
 request("/api/status")
   .then((s) => {
