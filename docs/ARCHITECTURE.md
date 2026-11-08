@@ -66,16 +66,16 @@ Each stage is a function of the artifacts of the stages it needs and of the run 
 
 | Stage | Requirement | Needs | Parameters in its key |
 |---|---|---|---|
-| `load` | data | none | CSV SHA-256, library versions |
+| `load` | data | none | CSV SHA-256, library versions, `prefilter` |
 | `enrich` | X2/X3 | load | + open-data snapshot SHA-256 |
 | `represent` | A1 | load, enrich | weights, demo, embedding-model files, library versions |
 | `discover` | A2/A3 | enrich, represent | portfolio SHA-256 |
 | `stability` | A5 | represent, discover | bootstrap count |
 | `evidence` | A4 | load, enrich, represent, discover | portfolio SHA-256 |
 | `profiles` | A2–A5 | the six above | portfolio SHA-256 |
-| `rank` | A7 | enrich, represent, discover, evidence | portfolio SHA-256 |
+| `rank` | A7 | load, enrich, represent, discover, evidence | portfolio SHA-256, `postfilter` |
 | `narrate` | A6 | profiles | LLM name (+ model digest per profile) |
-| `evaluate` | holdout | enrich, represent | portfolio SHA-256 |
+| `evaluate` | holdout | load, enrich, represent | portfolio SHA-256, `postfilter` |
 
 **Cache key (Merkle style):** `sha256(stage name, SHA-256 of the stage's source files, its parameter values, the keys of the stages it needs)`. A key changes exactly when something the stage can see changes: input data, a parameter, or the code. Only the root inputs are hashed (CSVs, portfolio, open-data snapshot, embedding-model file list); large arrays never are.
 
@@ -86,6 +86,8 @@ Each stage is a function of the artifacts of the stages it needs and of the run 
 - New customer list: `load`, `enrich` and `represent` are reused.
 - Custom weights: `load` and `enrich` are reused; the default-weights comparison in `evaluate` reuses the cached default `represent`.
 - Text only (prompt, model or `narrative.py` changed): only `narrate` runs.
+- Data filters "after the analysis": only `rank` and `evaluate` run (under a second). "Before the analysis": everything runs, because the universe itself changes.
+- No filters: `prefilter` and `postfilter` are `null`, and the exports are byte-identical to a run without the filter feature (checked on 2026-11-08 against `main` 99f24d1).
 
 `report.json` records each stage's key prefix, status (`computed`, `cached`, or `partial` when some profiles' text was reused) and seconds under `stages`.
 
@@ -208,6 +210,10 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 ### 2.10 Web app (`server.py`, A8)
 - **Περισσότερες επιλογές** panel:
   - **Adjustable similarity weights.** They are passed to `build_features`; the validated defaults are 65 / 20 / 10 / 5. A custom run is flagged in `report.json` (`custom_weights`) and re-runs the holdout with the defaults for comparison.
+  - **Data filters** (`filters.py`). Exclude activities (ΚΑΔ, exact codes or a code prefix such as `5630` for the whole family; primary ΚΑΔ only, or any declared ΚΑΔ) and places (Περιφερειακή Ενότητα, Δήμος). Exclusion is per venue. A switch chooses when it applies:
+    - **After the analysis** (`post`, default): profiles, statistics and assignments are unchanged. `rank_candidates` skips excluded venues *before* keeping one venue per VAT, so a business can still appear through a non-excluded branch, and ranks run 1..n. The holdout filters both the model and the baseline lists in the same way, and measures recall over the held-out customers that still have an eligible venue (`held_out_excluded` counts the rest).
+    - **Before the analysis** (`pre`, raw data): `load` drops the excluded venues and their activity rows, so features, profiles, base rates, statistics, ranking and holdout are all computed on the filtered market. Customers keep only their non-excluded venues; a customer with none left leaves the portfolio (`dropped_customers`), and at least 5 must remain.
+    - `GET /api/filters/options` lists the activities and places with venue counts; `POST /api/filters/preview` returns how many venues and businesses a set of filters excludes. `report.json` records the filters, counts and a Greek summary under `filters`, and adds a warning. `scripts.validate_exports` accepts a filtered run and checks it, but submission exports must come from an unfiltered run (a `pre` run's `assignments.csv` omits the excluded venues).
   - **Live ΓΕΜΗ check** (§2.11).
 - The prospects map is drawn over an offline Natural Earth outline of Greece.
 - FastAPI bound to `127.0.0.1`, with a middleware that rejects cross-site requests.
@@ -300,6 +306,7 @@ The 50/50 mix is recall-neutral within noise and gives more activity-based profi
 ### Where small differences are possible
 - **Different hardware, OS or library versions** can change floating-point results in the embeddings or matrix maths in the last decimal places. That can swap two candidates whose scores are almost tied. Pinned package versions (`requirements*.txt`) and the embedding cache keep this rare. The aggregate results (profiles, recall) should not change.
 - **Custom weights:** a run with non-default weights is a different model by design. Its recommendations differ, and `report.json` flags it.
+- **Data filters:** the same filters give the same output. A filtered run is flagged under `filters` in `report.json`.
 - **Descriptions only:** temperature 0, seed 42 and top-k 1 make the text repeatable on the same machine with the same Ollama and model digest. In practice the wording can also differ between runs on the same machine, depending on Ollama's state, e.g. whether the model was already loaded by the title step. On 2026-11-07, the same profiles got 3–4 versus 6 of 6 sentences passing the checks. Across machines, GPU/CPU kernels can produce different wording. Every number in the text is still checked against the data, so wording may vary but facts cannot. Since T3, the text is cached per profile (§2.0), so re-running on the same inputs shows the same wording until `--from-stage narrate` regenerates it. `profiles.json` records the model digest, prompt hash and rejected drafts for auditing.
 
 ### How to check it yourself

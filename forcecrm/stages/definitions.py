@@ -23,6 +23,7 @@ from .engine import Stage, sha256, source_hash
 from ..clustering import stability as bootstrap_stability
 from ..data import load_universe
 from ..enrichment import enrich as link_and_contextualise
+from ..filters import apply_to_universe, excluded_mask
 from ..evidence import significant_features, portfolio_traits, activity_mix
 from ..features import build_features, count_secondaries, secondary_band, DEFAULT_WEIGHTS
 from ..narrative import narrate as describe
@@ -32,7 +33,18 @@ from ..titles import activity_families, make_title
 
 def load(ctx):
     companies, activities, descriptions, audit = load_universe(ctx.obj('root'))
-    return {'companies': companies, 'activities': activities, 'descriptions': descriptions, 'audit': audit}
+    filtered = None
+    if ctx.param('prefilter'):
+        # 'pre' mode: the excluded venues are gone before any feature, profile or statistic is computed.
+        companies, activities, filtered = apply_to_universe(companies, activities, ctx.param('prefilter'))
+    return {'companies': companies, 'activities': activities, 'descriptions': descriptions, 'audit': audit,
+            'filtered': filtered}
+
+
+def result_exclusions(ctx):
+    """'post' mode: venues removed from the suggestions (None when no result filter is set)."""
+    filters = ctx.param('postfilter')
+    return excluded_mask(ctx['enrich']['companies'], ctx['load']['activities'], filters) if filters else None
 
 
 def enrich(ctx):
@@ -124,7 +136,8 @@ def rank(ctx):
     # Reads the statistical traits only, never the AI text, so it runs before narration.
     reasons = [{'significant_features': features} for features in ctx['evidence']['features']]
     return rank_candidates(ctx['enrich']['companies'], ctx['discover']['fit'], set(ctx.obj('portfolio').vat),
-                           ctx['represent']['traits'], reasons, primary_codes=ctx['represent']['primary'])
+                           ctx['represent']['traits'], reasons, primary_codes=ctx['represent']['primary'],
+                           exclude=result_exclusions(ctx))
 
 
 def narrate(ctx):
@@ -163,12 +176,13 @@ def narrate(ctx):
 def evaluate(ctx):
     companies, primary = ctx['enrich']['companies'], ctx['represent']['primary']
     portfolio = ctx.obj('portfolio')
-    result = evaluate_holdout(ctx['represent']['X'], companies, portfolio, primary)
+    exclude = result_exclusions(ctx)
+    result = evaluate_holdout(ctx['represent']['X'], companies, portfolio, primary, exclude=exclude)
     if ctx['represent']['meta']['custom_weights'] and 'metrics' in result:
         # Same holdout with the validated default weights, so the user sees the accuracy trade-off.
         ctx.progress('Re-running the holdout with default weights for comparison')
         default_X = ctx.runner.variant(weights=dict(DEFAULT_WEIGHTS)).get('represent')['X']
-        default = {m['k']: m['recall'] for m in evaluate_holdout(default_X, companies, portfolio, primary)['metrics']}
+        default = {m['k']: m['recall'] for m in evaluate_holdout(default_X, companies, portfolio, primary, exclude=exclude)['metrics']}
         for metric in result['metrics']:
             metric['default_weights_recall'] = default.get(metric['k'])
     return result
@@ -191,7 +205,7 @@ UNIVERSE = ('data_sha256', 'libraries')
 PORTFOLIO = ('portfolio_sha256',)
 
 STAGES = {s.name: s for s in [
-    Stage('load', 'A8 data', (), UNIVERSE, ('data.py', 'db.py'), load,
+    Stage('load', 'A8 data', (), UNIVERSE + ('prefilter',), ('data.py', 'db.py', 'filters.py'), load,
           message='Reading and validating the business universe'),
     Stage('enrich', 'X2/X3', ('load',), UNIVERSE + ('open_data_sha256',), ('enrichment.py',), enrich,
           message='Linking OpenStreetMap venues and municipal hotel statistics'),
@@ -205,11 +219,12 @@ STAGES = {s.name: s for s in [
           message='Testing which traits are over-represented (Fisher + BH)'),
     Stage('profiles', 'A2–A5', ('load', 'enrich', 'represent', 'discover', 'stability', 'evidence'), PORTFOLIO,
           ('titles.py',), profiles),
-    Stage('rank', 'A7', ('enrich', 'represent', 'discover', 'evidence'), PORTFOLIO,
-          ('pipeline.py', 'affinity.py', 'narrative.py'), rank, message='Ranking non-customer businesses'),
+    Stage('rank', 'A7', ('load', 'enrich', 'represent', 'discover', 'evidence'), PORTFOLIO + ('postfilter',),
+          ('pipeline.py', 'affinity.py', 'narrative.py', 'filters.py'), rank, message='Ranking non-customer businesses'),
     Stage('narrate', 'A6', ('profiles',), ('model', 'demo'), ('narrative.py', 'titles.py'), narrate,
           persist=False, deterministic=False),
-    Stage('evaluate', 'holdout', ('enrich', 'represent'), PORTFOLIO, ('pipeline.py', 'affinity.py', 'features.py'),
+    Stage('evaluate', 'holdout', ('load', 'enrich', 'represent'), PORTFOLIO + ('postfilter',),
+          ('pipeline.py', 'affinity.py', 'features.py', 'filters.py'),
           evaluate, message='Running an internal 20% VAT holdout against the primary-code baseline'),
 ]}
 ORDER = list(STAGES)

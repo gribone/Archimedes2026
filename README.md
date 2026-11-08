@@ -82,6 +82,10 @@ Click a prospect's name for its company card (address, legal form, every declare
 
 **Περισσότερες επιλογές** (more options) panel:
 - **Adjustable similarity weights** (activity / geography / legal form / age). The validated defaults are 65 / 20 / 10 / 5. A custom run shows a warning and re-runs the internal holdout with the default weights, so the accuracy trade-off is visible. Submission exports should use the defaults.
+- **Data filters.** Exclude activities (ΚΑΔ, searched by name or code; a code such as `5630` excludes the whole family) or places (Περιφερειακή Ενότητα, Δήμος). By default only the primary ΚΑΔ counts; a checkbox includes secondary ones. The panel shows straight away how many shops the filters exclude. A switch chooses **when** they apply:
+  - **After the analysis** (default): profiles and statistics stay the same; excluded businesses are only removed from the suggestions and `lookalikes.csv`, which are re-ranked from 1. Fast: only ranking and the holdout re-run.
+  - **Before the analysis** (raw data): excluded shops are removed before profiles are formed, so profiles, statistics and the holdout change. Customers with only excluded shops leave the analysis (at least 5 must remain).
+  - The holdout applies the same filters, and the Τεκμηρίωση view says how. Many exclusions can push the suggestions below 2,000. Submission exports should be unfiltered. CLI: `--filters '{"mode": "post", "activities": ["5630"], "prefectures": ["ΚΥΚΛΑΔΩΝ"]}'`.
 - **Live ΓΕΜΗ status check (opt-in, online).** Checks whether the top N prospects (1–200) are still active in the ΓΕΜΗ Open Data API. It needs your **own** ΓΕΜΗ `api_key`, entered in the form or set as `GEMI_API_KEY`.
   - It runs server-side and sends **only prospect ΑΦΜ**, never the customer list or revenue.
   - It is rate-limited (`GEMI_REQUESTS_PER_MINUTE`, default 8), and results are cached for 7 days in the local SQLite store (`.cache/forcecrm.sqlite`, table `gemi_status`).

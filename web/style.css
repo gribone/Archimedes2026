@@ -2453,3 +2453,189 @@ details.technical > summary {
     height: 35px;
   }
 }
+
+/* ---------------------------------------------------------- data filters */
+.filter-mode {
+  border: 0;
+  padding: 0;
+  margin: 0 0 14px;
+  min-width: 0;
+}
+.filter-mode legend,
+.picker > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  padding: 0;
+}
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.segmented label {
+  position: relative;
+  cursor: pointer;
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented span {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background 0.15s;
+}
+.segmented small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.segmented label:hover span {
+  background: var(--mint);
+}
+.segmented input:checked + span {
+  background: var(--green);
+  color: var(--on-accent);
+}
+.segmented input:checked + span small {
+  color: inherit;
+  opacity: 0.85;
+}
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.segmented input:disabled + span {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.picker {
+  margin-bottom: 14px;
+}
+.picker-box {
+  position: relative;
+}
+.picker-box input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+}
+.picker-box input:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+.picker-options {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.14);
+}
+.picker-options li {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.picker-options li strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.picker-options li small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.picker-options li:hover,
+.picker-options li[aria-selected="true"] {
+  background: var(--mint);
+}
+.picker-options .picker-empty {
+  color: var(--muted);
+  cursor: default;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chips:empty {
+  display: none;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 10px;
+  border-radius: 999px;
+  background: var(--mint);
+  border: 1px solid var(--line);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.chip button {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.chip button:hover {
+  background: var(--surface);
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.check input {
+  margin-top: 2px;
+}
+#filters-panel .weights-footer {
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .segmented {
+    grid-template-columns: 1fr;
+  }
+}
+
+#filters-clear {
+  white-space: nowrap;
+}
