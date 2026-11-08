@@ -2453,3 +2453,48 @@ details.technical > summary {
     height: 35px;
   }
 }
+
+/* ---------------------------------------------------------- cluster export */
+.cluster-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--mint);
+}
+.cluster-export > div {
+  flex: 1 1 280px;
+}
+.cluster-export strong {
+  display: block;
+  color: var(--ink);
+}
+.cluster-export small {
+  color: var(--muted);
+}
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+.profile-actions .profile-prospects {
+  margin: 0;
+}
+
+/* ------------------------------------------------ developer-only details */
+body:not(.is-developer) .dev-only {
+  display: none !important;
+}
+.dev-badge {
+  background: #1e3a8a;
+  color: #ffffff;
+  border-color: #1e3a8a;
+}
+.developer-login {
+  border-style: dashed;
+}

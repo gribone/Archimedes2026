@@ -40,6 +40,8 @@ def ensure_schema(con):
         con.execute('ALTER TABLE users ADD COLUMN tutorial_done_at TEXT')
     if 'last_login_at' not in columns:
         con.execute('ALTER TABLE users ADD COLUMN last_login_at TEXT')
+    if 'role' not in columns:  # 'user' (default) or 'developer' (sees the technical details)
+        con.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
 
 
 def _now():
@@ -71,9 +73,13 @@ def verify_password(password, stored):
     return hmac.compare_digest(actual, expected)
 
 
+ROLES = ('user', 'developer')
+
+
 def _user(row):
+    role = row['role'] if 'role' in row.keys() and row['role'] in ROLES else 'user'
     return {'user_id': row['user_id'], 'username': row['username'], 'created_at': row['created_at'],
-            'tutorial_done': bool(row['tutorial_done_at'])}
+            'tutorial_done': bool(row['tutorial_done_at']), 'role': role}
 
 
 def login(con, username, password):
@@ -107,25 +113,30 @@ def login(con, username, password):
 # One-click demo sign-in for live presentations: a built-in local user with no usable password
 # (the marker never verifies, so the normal form cannot sign in as it) and the guided tour already done.
 DEMO_USERNAME = 'Επίδειξη'
+DEVELOPER_USERNAME = 'Developer'
 DEMO_PASSWORD_MARKER = '!demo-no-password'
 
 
-def demo_login(con):
-    """Return (user, session_token) for the built-in demo user, creating it on first use.
+def demo_login(con, role='user'):
+    """Return (user, session_token) for a built-in one-click account, creating it on first use.
 
-    If a real account already uses the demo name, a numbered name is used instead, so a demo
-    sign-in can never open someone's own account.
+    role 'user' signs into «Επίδειξη» (the salesperson's view); role 'developer' signs into
+    «Developer», which also sees the technical details. If a real account already uses the
+    name, a numbered name is used instead, so a demo sign-in can never open someone's account.
     """
+    if role not in ROLES:
+        raise AuthError('Άγνωστος ρόλος.')
     ensure_schema(con)
+    base = DEVELOPER_USERNAME if role == 'developer' else DEMO_USERNAME
     for suffix in [''] + [f' {i}' for i in range(2, 50)]:
-        name = DEMO_USERNAME + suffix
+        name = base + suffix
         row = con.execute('SELECT * FROM users WHERE username = ?', (name,)).fetchone()
         if row is None:
             now = _now().isoformat()
-            con.execute('INSERT INTO users (username, password_hash, created_at, tutorial_done_at) VALUES (?, ?, ?, ?)',
-                        (name, DEMO_PASSWORD_MARKER, now, now))
+            con.execute('INSERT INTO users (username, password_hash, created_at, tutorial_done_at, role) '
+                        'VALUES (?, ?, ?, ?, ?)', (name, DEMO_PASSWORD_MARKER, now, now, role))
             row = con.execute('SELECT * FROM users WHERE username = ?', (name,)).fetchone()
-        if row['password_hash'] == DEMO_PASSWORD_MARKER:
+        if row['password_hash'] == DEMO_PASSWORD_MARKER and row['role'] == role:
             break
     else:
         raise AuthError('Δεν βρέθηκε διαθέσιμο όνομα για τον λογαριασμό επίδειξης.')

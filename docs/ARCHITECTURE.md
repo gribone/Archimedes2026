@@ -202,6 +202,7 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 ### 2.9 Outputs and internal evaluation
 - `profiles.json`: title, `confidence` (the brief's name; same value as `confidence_score`), AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, `activity_mix`, plus LLM parameters.
 - `assignments.csv` (`company_id, profile_id, score`) and `lookalikes.csv` (`profile_id, company_id, rank, score, rationale`).
+- `clusters.xlsx` / `clusters.json` / `clusters.csv` (`forcecrm/clusters.py`): each profile with its description and the ΑΦΜ it contains. Recommended prospects come from `lookalikes.csv` and are ranked within the profile; *within profile* means the same acceptance radius as `assignments.csv`, otherwise exploratory. The profile's customers are listed one row per ΑΦΜ.
 - `report.json`: data audit, chosen k and diagnostics, `portfolio_traits`, input SHA-256 hashes, timings and the internal holdout test.
 - **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.7% / 51.0%.
 

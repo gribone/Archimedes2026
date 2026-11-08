@@ -201,3 +201,32 @@ def test_singular_legal_form_with_plural_count_is_rejected():
     with pytest.raises(ValueError):
         check_sentence('Η Ιδιωτική Κεφαλαιουχική Εταιρεία (ΙΚΕ) είναι 74 από τους 100 πελάτες (74%), 4,8 φορές συχνότερα.', fact)
     assert check_sentence('Ιδιωτικές Κεφαλαιουχικές Εταιρείες (ΙΚΕ) είναι 74 από τους 100 πελάτες (74%), 4,8 φορές συχνότερα.', fact)
+
+
+def test_cluster_export_lists_prospects_and_customers_per_profile(tmp_path):
+    import json
+    import openpyxl
+    from forcecrm.clusters import build_clusters, export_clusters
+    companies = pd.DataFrame({'company_id': ['1', '2', '3', '4', '5', '6'],
+                              'vat': ['000000001', '000000001', '000000002', '000000003', '000000004', '000000005'],
+                              'company_name_el': ['A', 'A2', 'B', 'C', 'D', 'E'], 'city': ['X'] * 6,
+                              'municipality_name': ['M'] * 6})
+    profiles = [{'profile_id': 'ICP-01', 'title': 'T1', 'description': 'D1', 'ai_generated': True},
+                {'profile_id': 'ICP-02', 'title': 'T2', 'description': 'D2', 'ai_generated': True}]
+    # Customer 000000001 has two branches in ICP-01; customer 000000002 is in ICP-02.
+    fit = {'indices': np.array([0, 1, 2]), 'labels': np.array([0, 0, 1]),
+           'vats': np.array(['000000001', '000000001', '000000002'])}
+    assignments = pd.DataFrame({'company_id': ['4', '5', '6'], 'profile_id': ['ICP-01', 'NONE', 'ICP-02'], 'score': [.9, .5, .8]})
+    lookalikes = pd.DataFrame({'profile_id': ['ICP-01', 'ICP-02', 'ICP-01'], 'company_id': ['4', '6', '5'],
+                               'rank': [1, 2, 3], 'score': [.9, .8, .5], 'rationale': ['r1', 'r2', 'r3']})
+    table = build_clusters(companies, profiles, fit, assignments, lookalikes)
+    prospects = table[table.role == 'prospect'].set_index('vat')
+    assert prospects.loc['000000003', 'profile_rank'] == 1 and prospects.loc['000000004', 'profile_rank'] == 2
+    assert bool(prospects.loc['000000003', 'within_profile']) and not bool(prospects.loc['000000004', 'within_profile'])
+    customers = table[table.role == 'customer']
+    assert customers.vat.tolist().count('000000001') == 1  # one row per ΑΦΜ despite two branches
+    export_clusters({'clusters': table, 'profiles': profiles}, tmp_path)
+    data = json.loads((tmp_path / 'clusters.json').read_text('utf-8'))
+    assert data[0]['customers'] == ['000000001'] and [p['vat'] for p in data[0]['prospects']] == ['000000003', '000000004']
+    sheet = openpyxl.load_workbook(tmp_path / 'clusters.xlsx')['ICP-01']
+    assert sheet['C5'].value == '000000003' and sheet['A2'].value == 'D1'

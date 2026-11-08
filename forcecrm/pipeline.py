@@ -10,6 +10,7 @@ import pandas as pd
 import psutil
 from threadpoolctl import threadpool_limits
 
+from .clusters import build_clusters, export_clusters
 from .clustering import discover
 from .data import FILES
 from .features import is_custom, normalize_weights
@@ -192,7 +193,9 @@ def run_analysis(root: Path, portfolio, demo=False, model=DEFAULT_LLM, progress=
     report['enrichment'] = enriched['coverage']
     report['sources'] += ['OpenStreetMap contributors via Geofabrik (ODbL)', 'ELSTAT: municipal hotel nights 2024 and resident population 2021. ForceCRM calculated the ratios. ELSTAT bears no responsibility for the transformation.']
     preview = lookalikes.merge(c[['company_id', 'vat', 'company_name_el', 'city', 'latitude', 'longitude']], on='company_id')
+    clusters = build_clusters(c, profiles, fit, assignments, lookalikes)
     return {'profiles': profiles, 'assignments': assignments, 'lookalikes': lookalikes, 'report': report,
+            'clusters': clusters,
             'enrichment': enriched['enrichment'], 'preview': preview.replace({np.nan: None}).to_dict('records')}
 
 
@@ -206,3 +209,5 @@ def export_result(result, directory):
         files.append('enrichment')
     for name in files:
         result[name].to_csv(directory / f'{name}.csv', index=False, encoding='utf-8-sig', float_format='%.8f')
+    if 'clusters' in result:
+        export_clusters(result, directory)

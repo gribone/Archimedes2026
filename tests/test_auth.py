@@ -165,3 +165,21 @@ def test_demo_login_needs_no_account_and_cannot_be_used_from_the_form(tmp_path):
     import pytest
     with pytest.raises(auth.AuthError):  # no password ever opens the demo user through the form
         auth.login(con, auth.DEMO_USERNAME, auth.DEMO_PASSWORD_MARKER)
+
+
+def test_developer_one_click_account_has_its_own_role(tmp_path):
+    import sqlite3
+    from forcecrm import auth
+    con = sqlite3.connect(tmp_path / 'roles.sqlite')
+    con.row_factory = sqlite3.Row
+    con.execute('CREATE TABLE users (user_id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, '
+                'password_hash TEXT NOT NULL, created_at TEXT NOT NULL)')
+    seller, _ = auth.demo_login(con)
+    developer, token = auth.demo_login(con, 'developer')
+    assert seller['role'] == 'user' and developer['role'] == 'developer'
+    assert developer['username'] == auth.DEVELOPER_USERNAME and developer['user_id'] != seller['user_id']
+    assert auth.session_user(con, token)['role'] == 'developer'
+    user, _, _ = auth.login(con, 'maria', 'secret')  # normal accounts are salesperson accounts
+    assert user['role'] == 'user'
+    with pytest.raises(auth.AuthError):
+        auth.demo_login(con, 'admin')

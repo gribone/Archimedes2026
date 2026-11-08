@@ -42,7 +42,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 ## User's tasks
 
 ### T1 · Fix the UI: functional login; remove or fix non-functional buttons · P1 · Lane A
-- **Status:** login part done and merged into `main` on 2026-11-08 (Dimitris, branch `task/T16-onboarding`, deleted). It also has a one-click demo sign-in with no account and no tour pop-up (2026-11-08): demo accounts (new username = new account, existing username checks its scrypt password), HttpOnly/SameSite=Strict session cookie, 401 on the API without a session, logout, first-login guided tour and a local help assistant with support hand-off. `scripts.e2e_server` 30/30 with login on. The button audit below is still open. Since the merge, `main` also has dark mode, the "Περισσότερες επιλογές" panel (weights and live ΓΕΜΗ check) and an offline Greece map. Include them in the click-through audit. UI made friendlier on 2026-11-08: plain-Greek labels, certainty badges instead of raw p/q-values, collapsible profiles, hover explanations, plain-language recall sentences.
+- **Status:** login part done and merged into `main` on 2026-11-08 (Dimitris, branch `task/T16-onboarding`, deleted). It also has a one-click demo sign-in with no account and no tour pop-up (2026-11-08): demo accounts (new username = new account, existing username checks its scrypt password), HttpOnly/SameSite=Strict session cookie, 401 on the API without a session, logout, first-login guided tour and a local help assistant with support hand-off. `scripts.e2e_server` 30/30 with login on. The button audit below is still open. Since the merge, `main` also has dark mode, the "Περισσότερες επιλογές" panel (weights and live ΓΕΜΗ check) and an offline Greece map. Include them in the click-through audit. UI made friendlier on 2026-11-08: plain-Greek labels, certainty badges instead of raw p/q-values, collapsible profiles, hover explanations, plain-language recall sentences. Developer-only view added on 2026-11-08: technical details hidden for salespeople, shown to the one-click «Developer» account.
 - **Context:** there is **no login today**, neither on `main` (FastAPI + `web/`) nor on the teammate's Streamlit branch. The app binds to 127.0.0.1 and has origin/host checks only.
 - **Decide first 🧑‍⚖️ (ask the user):**
   - Is login a real requirement (multi-user, per-user runs) or demo polish?
@@ -259,6 +259,9 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
 - **Context:** `confidence_score` and lookalike `score` are uncalibrated, and the docs admit it.
 - **Work:** on holdout splits, fit an isotonic or Platt mapping from score to "probability of being a hidden customer within the top-k". Report a reliability plot. Never call it a purchase or credit probability.
 - **Acceptance:** calibration curve in the card; UI wording reviewed for T14 compliance.
+
+### T17 · Cluster export with descriptions and ΑΦΜ (challenge owner's request) · P0 · Lane F
+- **Status:** done (2026-11-08). `clusters.xlsx` (summary, one sheet per profile, customers), `clusters.json` and `clusters.csv`: each profile with its AI description and the ΑΦΜ of the recommended new businesses (ranked, within-profile flag, reason) plus its customers. Download buttons in the Profiles view; included in `all.zip`. Test: `test_cluster_export_lists_prospects_and_customers_per_profile`.
 
 ## Done (for context)
 

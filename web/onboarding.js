@@ -72,6 +72,7 @@
     {
       target: "#options-toggle",
       view: "overview",
+      developer: true,
       title: "Περισσότερες επιλογές (προαιρετικά)",
       body: "Για προχωρημένους: αλλαγή των βαρών ομοιότητας και έλεγχος στο ΓΕΜΗ αν οι προτάσεις είναι ακόμη ενεργές. Οι προεπιλογές είναι ήδη ελεγμένες, οπότε μπορείτε να το αφήσετε όπως είναι.",
     },
@@ -138,7 +139,7 @@
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     };
-    const steps = () => STEPS; // a hidden target (e.g. narrow screen) falls back to a centred card
+    const steps = () => STEPS.filter((s) => !s.developer || document.body.classList.contains("is-developer")); // a hidden target (e.g. narrow screen) falls back to a centred card
     function build() {
       root = document.createElement("div");
       root.className = "tour";
@@ -474,6 +475,8 @@
     .then((me) => {
       if (!me) return;
       user = me.user;
+      // Technical details (.dev-only) are shown only to the «Developer» account.
+      document.body.classList.toggle("is-developer", user.role === "developer");
       byId("user-name").textContent = user.username;
       menuButton.textContent = initials(user.username);
       menuButton.title = user.username;

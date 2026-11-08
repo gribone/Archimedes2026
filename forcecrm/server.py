@@ -268,7 +268,8 @@ def company(company_id: str):
 
 @app.get('/api/jobs/{job_id}/export/{filename}')
 def download(job_id: str, filename: str):
-    if filename not in ['profiles.json', 'assignments.csv', 'lookalikes.csv', 'enrichment.csv', 'report.json', 'live-status.csv', 'all.zip']:
+    if filename not in ['profiles.json', 'assignments.csv', 'lookalikes.csv', 'enrichment.csv', 'report.json', 'live-status.csv',
+                        'clusters.xlsx', 'clusters.json', 'clusters.csv', 'all.zip']:
         raise HTTPException(404)
     with lock:
         job = jobs.get(job_id)
@@ -279,7 +280,7 @@ def download(job_id: str, filename: str):
         buffer = BytesIO()
         with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
             for file in directory.iterdir():
-                if file.suffix in ['.json', '.csv']:
+                if file.suffix in ['.json', '.csv', '.xlsx']:
                     archive.write(file, file.name)
         return Response(buffer.getvalue(), media_type='application/zip', headers={'Content-Disposition': 'attachment; filename="forcecrm-results.zip"'})
     if not (directory / filename).is_file():
@@ -378,11 +379,13 @@ def demo_available():
 
 
 @app.post('/api/auth/demo')
-def demo_login(response: Response):
+def demo_login(response: Response, role: str = Form('user')):
     if not demo_login_enabled():
         raise HTTPException(404, 'Η είσοδος επίδειξης είναι απενεργοποιημένη.')
+    if role not in auth.ROLES:
+        raise HTTPException(400, 'Άγνωστος ρόλος.')
     with closing(db.connect(ROOT)) as con:
-        user, token = auth.demo_login(con)
+        user, token = auth.demo_login(con, role)
     response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400, httponly=True,
                         samesite='strict', path='/')
     return {'user': user, 'demo': True}
@@ -399,7 +402,7 @@ def logout(request: Request, response: Response):
 @app.get('/api/auth/me')
 def me(request: Request):
     if not auth_enabled():
-        return {'user': {'user_id': None, 'username': 'local', 'tutorial_done': True}, 'auth': False}
+        return {'user': {'user_id': None, 'username': 'local', 'tutorial_done': True, 'role': 'developer'}, 'auth': False}
     user = current_user(request)
     if user is None:
         raise HTTPException(401, 'Απαιτείται σύνδεση.')
