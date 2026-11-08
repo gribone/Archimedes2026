@@ -108,16 +108,16 @@ def build():
     add('<super>4</super> Sentences passing every check within two attempts; same profiles, prompt and checks for all models. Measures grounded rewriting, not fluency; human fluency ratings remain uncollected.')
     times = [p['llm']['seconds'] for p in profiles]
     share = sum(p['llm']['llm_sentences'] for p in profiles) / sum(p['llm']['llm_sentences'] + p['llm']['template_sentences'] for p in profiles)
-    add(f'In the submitted run Ministral wrote {share:.0%} of fact sentences and took {min(times):.0f}-{max(times):.0f} seconds per profile. The pass rate varies between runs with the local Ollama state (benchmark run above); failing sentences always keep their verified template. The full run took {report["performance"]["seconds"]/60:.1f} minutes with cached activity embeddings. Temperature 0, seed 42, top-k 1 and context 2,048 are fixed. Each export records model identity, prompt hash, rejected drafts and source hashes.')
+    add(f'In the submitted run Ministral wrote {share:.0%} of fact sentences and took {min(times):.0f}-{max(times):.0f} seconds per profile. The pass rate varies with the local Ollama state; failing sentences keep their verified template. The full run took {report["performance"]["seconds"]/60:.1f} minutes with cached activity embeddings. Temperature 0, seed 42, top-k 1 and context 2,048 are fixed. Each export records model identity, prompt hash, rejected drafts and source hashes.')
     add('Licenses and reproducibility', 'h')
     add('The <a href="https://ollama.com/library/ministral-3:3b/blobs/43070e2d4e53" color="#15594b">distributed Ministral license</a> is Apache 2.0 and allows commercial use under its terms. The <a href="https://huggingface.co/intfloat/multilingual-e5-small/tree/main" color="#15594b">E5-small weight repository</a> declares MIT in its metadata and lacks a standalone license file. The <a href="https://github.com/microsoft/unilm/blob/master/LICENSE" color="#15594b">official E5 code repository</a> supplies the MIT license. The weight-specific licensing evidence is limited to the publisher’s declaration.')
-    add('OpenAI Codex assisted implementation, documentation and testing. Claude Code (Anthropic) assisted code review, holdout verification, setup fixes, the grounded per-sentence narration, the demo login, guided tour and help assistant, and documentation. The repository includes source links, an EU AI Act self-assessment, benchmark commands and the temporary Colab workflow.')
+    add('AI coding assistants (development only): OpenAI Codex and Claude Code (Anthropic) assisted implementation, review, testing and documentation, incl. the grounded narration, SQLite store, stage pipeline and demo login. The repository holds sources, the AI Act self-assessment and benchmark commands.')
 
     def footer(canvas, doc):
         canvas.setFont('CardBold',9); canvas.setFillColor(green)
         canvas.drawString(48, A4[1]-35, 'FORCECRM   /   MODEL & DATA CARD')
         canvas.setFont('Card',8); canvas.setFillColor(body)
-        canvas.drawRightString(A4[0]-48, A4[1]-35, '7 November 2026')
+        canvas.drawRightString(A4[0]-48, A4[1]-35, '8 November 2026')
         canvas.setStrokeColor(colors.HexColor('#d9e2db')); canvas.line(48,40,A4[0]-48,40)
         canvas.drawString(48,26,'NKUA Hackathon   ·   Competition use')
         canvas.drawRightString(A4[0]-48,26,f'{doc.page} / 2')

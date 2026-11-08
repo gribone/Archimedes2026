@@ -19,7 +19,7 @@ Read [CLAUDE.md](CLAUDE.md) (environment, commands, conventions) and [docs/ARCHI
 4. **Done means** the task's acceptance criteria hold, plus:
    - `pytest` passes
    - a full `scripts.analyze` run plus `scripts.validate_exports` prints `PASS`
-   - for any ranking or feature change, `scripts.audit_ranking --with-tourism` results are reported against **21.3% / 51.3%** (5-split mean)
+   - for any ranking or feature change, `scripts.audit_ranking --with-tourism` results are reported against **21.7% / 51.0%** (5-split mean)
    - the docs are synced (list in CLAUDE.md, "When numbers change…")
 5. Set `Status: done (<commit>)` and add one line of results. **Commit or push only when the user asks.**
 6. Tasks marked 🧑‍⚖️ need a **user decision** before implementation: write the options with measurements, then ask.
@@ -148,7 +148,7 @@ Suggested order: T6 (quick, P0) and T7 in parallel with T1/T2/T3, then T4 and T5
   4. **Two-level profiles:** activity profile × region facet. A profile reads "school canteens (Attica 40%, Thessaloniki 20%)", and the region becomes a filter rather than the profile's identity.
 - **Acceptance:**
   - Each profile's top significant traits are activity-based (primary or secondary ΚΑΔ, or OSM amenity).
-  - Recall is reported against the 21.3% / 51.3% reference.
+  - Recall is reported against the current 21.7% / 51.0% reference.
   - **If recall drops by more than noise (~3 points), stop and ask the user** whether the trade-off is acceptable. Recall is also judged.
   - Update ARCHITECTURE §3, README, card and audit.
 

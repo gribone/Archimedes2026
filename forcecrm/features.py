@@ -76,9 +76,45 @@ def is_custom(weights):
     return any(abs(weights[name] - value) > 1e-6 for name, value in DEFAULT_WEIGHTS.items())
 
 
-def build_features(c, a, d, root, demo=False, model_path=None, weights=None):
+# How secondary activities enter the activity vector (A1). The primary activity always dominates.
+# weight: share of the secondary part when a business declares few secondaries;
+# full_until / ignore_above: trust in secondaries falls as full_until / n beyond full_until declared
+# secondaries, and is zero above ignore_above (declaring very many codes is usually noise);
+# non56_weight: share for related secondaries outside food service (bakery, retail, lodging...);
+# max_codes / min_similarity: at most this many codes per group, each this similar to the primary.
+# Measured on 5 holdout splits (2026-11-08): recall-neutral against the old 85/15, ≤3-ΚΑΔ-56 rule
+# (21.7% / 51.0% vs 21.3% / 51.3%), and it follows the challenge owner's guidance: primary dominates,
+# secondaries take part (also outside food service), very many secondaries are treated as noise.
+SECONDARY_DEFAULT = {'weight': .15, 'full_until': 5, 'ignore_above': 20, 'non56_weight': .05,
+                     'max_codes': 3, 'min_similarity': .70}
+SECONDARY_BANDS = [(0, '0'), (5, '1–5'), (10, '6–10'), (20, '11–20')]
+
+
+def secondary_band(n):
+    return next((label for limit, label in SECONDARY_BANDS if n <= limit), '>20')
+
+
+def secondary_trust(n, policy):
+    """Share of the secondary weight a business keeps, given how many secondaries it declares."""
+    if policy['ignore_above'] is not None and n > policy['ignore_above']:
+        return 0.0
+    if policy['full_until'] is not None and n > policy['full_until']:
+        return policy['full_until'] / n
+    return 1.0
+
+
+def count_secondaries(c, a):
+    """Number of declared secondary activities per venue (primary codes excluded), in c's order."""
+    secondary = a[a.kind.eq('secondary')].groupby('company_id').activity_id.apply(set)
+    primary = a[a.kind.eq('primary')].groupby('company_id').activity_id.apply(set)
+    return np.array([len(secondary.get(cid, set()) - primary.get(cid, set())) for cid in c.company_id])
+
+
+def build_features(c, a, d, root, demo=False, model_path=None, weights=None, secondary=None):
     weights = normalize_weights(weights)
-    relevant_ids = set(a.loc[a.kind.eq('primary') | (a.kind.eq('secondary') & a.activity_id.str.startswith('56')), 'activity_id'])
+    policy = {**SECONDARY_DEFAULT, **(secondary or {})}
+    wanted = a.kind.eq('secondary') & (a.activity_id.str.startswith('56') | (policy['non56_weight'] > 0))
+    relevant_ids = set(a.loc[a.kind.eq('primary') | wanted, 'activity_id'])
     used = d[d.activity_id.isin(relevant_ids)].reset_index(drop=True)
     if used.empty:
         raise ValueError('No usable activity descriptions were found for the supplied businesses.')
@@ -87,24 +123,36 @@ def build_features(c, a, d, root, demo=False, model_path=None, weights=None):
     n, dim = len(c), embeddings.shape[1]
     semantic = np.zeros((n, dim), dtype='float32')
     groups = {cid: group for cid, group in a.groupby('company_id', sort=False)}
-    primary_codes, retained = [], []
+    primary_codes, retained, secondary_counts = [], [], []
     for i, row in enumerate(c.itertuples()):
         group = groups.get(row.company_id)
         codes = [] if group is None else sorted(set(group.loc[group.kind.eq('primary'), 'activity_id']))
         primary_codes.append(codes)
+        candidates = [] if group is None else sorted(set(group.loc[group.kind.eq('secondary'), 'activity_id']) - set(codes))
+        secondary_counts.append(len(candidates))
         valid = [lookup[code] for code in codes if code in lookup]
         if not valid:
             retained.append([])
             continue
         p = normalize(np.mean(valid, axis=0).reshape(1, -1))[0]
-        candidates = [] if group is None else sorted(set(group.loc[group.kind.eq('secondary'), 'activity_id']) - set(codes))
-        # Auxiliary and unrelated self-declared secondary codes never enter representation.
-        scored = sorted([(float(p @ lookup[code]), code) for code in candidates
-                         if code.startswith('56') and code in lookup], reverse=True)
-        keep = [code for similarity, code in scored if similarity >= .70][:3]
-        secondary = np.mean([lookup[code] for code in keep], axis=0) if keep else p
-        semantic[i] = .85 * p + .15 * secondary
-        retained.append(keep)
+        # Auxiliary codes never enter; secondaries count only if related to the primary activity, and
+        # count less the more of them a business declares (A3: the business itself is not penalised,
+        # its secondaries are trusted less, so its vector falls back towards its primary activity).
+        trust = secondary_trust(len(candidates), policy)
+
+        def related(food):
+            scored = sorted([(float(p @ lookup[code]), code) for code in candidates
+                             if code.startswith('56') == food and code in lookup], reverse=True)
+            return [code for similarity, code in scored if similarity >= policy['min_similarity']][:policy['max_codes']]
+        keep = related(True)
+        other = related(False) if policy['non56_weight'] > 0 else []
+        w_food, w_other = policy['weight'] * trust, policy['non56_weight'] * trust
+        food = np.mean([lookup[code] for code in keep], axis=0) if keep else p
+        vector = round(1 - w_food - w_other, 12) * p + w_food * food
+        if w_other:
+            vector = vector + w_other * (np.mean([lookup[code] for code in other], axis=0) if other else p)
+        semantic[i] = vector
+        retained.append(keep + other)
     semantic = normalize(semantic)
     # Fixed geographic RBF anchors in Greece; no network tiles or external enrichment.
     anchors = np.array([[lat, lon] for lat in [35., 37., 39., 41.] for lon in [20., 22., 24., 26., 28.]])
@@ -131,4 +179,5 @@ def build_features(c, a, d, root, demo=False, model_path=None, weights=None):
     return X, traits, primary_codes, {'embedding': identity, 'as_of': AS_OF,
         'missing_primary_venues': int(np.count_nonzero(np.linalg.norm(semantic, axis=1) == 0)),
         'secondary_codes_retained': sum(map(len, retained)), 'embedded_description_count': len(used),
+        'secondary_policy': policy,
         'block_weights': weights, 'custom_weights': is_custom(weights)}

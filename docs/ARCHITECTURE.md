@@ -111,12 +111,29 @@ Each venue becomes one L2-normalised vector made of four weighted blocks:
 
 | Block | Weight¹ | Content |
 |---|---:|---|
-| Activity | 0.65 | E5 embedding of the **primary** ΚΑΔ description (85%). The secondary part (15%) uses up to 3 secondary ΚΑΔ 56xx codes that are semantically close to the primary one (cosine ≥ 0.70). Unrelated secondary codes and all auxiliary codes are ignored, which handles self-declared noise. Averaging means businesses with many ΚΑΔ are not penalised (A3). |
+| Activity | 0.65 | E5 embedding of the **primary** ΚΑΔ description (≥ 80%), plus related secondaries: up to 3 ΚΑΔ 56 codes (≤ 15%) and up to 3 outside food service (≤ 5%), each with cosine ≥ 0.70 to the primary. The secondary share shrinks as 5/n above 5 declared secondaries and is zero above 20 (see *Secondary activities* below). Auxiliary codes are ignored. Averaging means businesses with many ΚΑΔ are not penalised (A3). |
 | Geography | 0.20 | GPS radial-basis features over 20 fixed anchors across Greece (70%), prefecture one-hot (30%), and a missing-GPS flag |
 | Legal form | 0.10 | One-hot (ΑΤΟΜΙΚΗ, ΙΚΕ, ΟΕ, …) |
 | Age | 0.05 | Soft bins at 2/4/6/8 years, measured from a **fixed** reference date `AS_OF = 2026-11-01` |
 
 ¹ Share of the squared norm. Each block is scaled by √weight before the final normalisation.
+
+**Secondary activities (challenge owner's guidance).** Every business has one primary activity and usually several secondaries (median 3; 13% declare more than 10, max 238). Following the challenge owner's guidance (primary dominates, secondaries take part, very many secondaries are usually noise):
+  - The primary ΚΑΔ gets at least 80% of the activity vector.
+  - Up to 3 related secondary ΚΑΔ 56 codes share up to 15%, and up to 3 related secondaries outside food service (bakery, retail, lodging…) share up to 5%. *Related* means cosine ≥ 0.70 to the primary.
+  - Trust in secondaries falls as 5/n once a business declares n > 5 of them, and is zero above 20. Such a business falls back to its primary activity.
+  - The business itself is never penalised (A3): only its secondaries count less.
+  - Measured on 5 holdout splits: recall-neutral against the old 85/15 rule (21.7% / 51.0% vs 21.3% / 51.3%), with clearly more stable profiles. Worst-10% bootstrap stability rose from 50% to 90% for the Kassandra profile.
+
+  | Rule (5 seeded splits, tourism on) | Recall@500 | Recall@2000 |
+  |---|---:|---:|
+  | Old: 85/15, ≤ 3 related ΚΑΔ 56 | 21.3% | 51.3% |
+  | Trust falls after 5, none above 20 | 21.3% | 51.0% |
+  | Trust falls after 10, none above 30 | 21.3% | 51.3% |
+  | **Shipped: falls after 5, none above 20, + related non-56 at 5%** | **21.7%** | **51.0%** |
+  | Number of secondaries as a ranking signal (3 variants) | 19.3–20.3% | 52.3–52.7% |
+
+  The count signal was not adopted: it trades Recall@500 for Recall@2000. As a portfolio-wide trait, customers more often declare more than 20 secondaries (8.0% vs 4.5%, 1.8×, p = 0.004) but also none (18.7% vs 14.9%); neither passes the Benjamini–Hochberg correction, so neither is shown.
 
 Embeddings are computed once per exact model and text fingerprint, then cached in `.cache/embeddings-<sha256>.npy`.
 
@@ -186,7 +203,7 @@ score = similarity_to_nearest_profile × sigmoid(market_affinity)
 - `profiles.json`: title, `confidence` (the brief's name; same value as `confidence_score`), AI description with per-sentence claims, customer and venue counts, revenue share, stability, confidence, traits with lift, p-value and q-value, `activity_mix`, plus LLM parameters.
 - `assignments.csv` (`company_id, profile_id, score`) and `lookalikes.csv` (`profile_id, company_id, rank, score, rationale`).
 - `report.json`: data audit, chosen k and diagnostics, `portfolio_traits`, input SHA-256 hashes, timings and the internal holdout test.
-- **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.3% / 51.3%.
+- **Holdout test** (seed 2026): 20% of customer ΑΦΜ are hidden, the model refits, and Recall@500/2000 is compared with the brief's primary-ΚΑΔ baseline. Current result: 25% / 55%, against a baseline of 1.7% / 8.3%. Across 5 seeded splits (`scripts.audit_ranking --with-tourism`) the mean is 21.7% / 51.0%.
 
 ### 2.10 Web app (`server.py`, A8)
 - **Περισσότερες επιλογές** panel:
@@ -236,7 +253,7 @@ On the supplied portfolio the three profiles are effectively regions: tourist is
 
 | Variant | Recall@500 | Recall@2000 | k | Activity / geography share of separation |
 |---|---:|---:|---:|---|
-| **Shipped** | **21.3%** | **51.3%** | 3 | 8% / 78% |
+| **Shipped at the time** (old secondary rule) | **21.3%** | **51.3%** | 3 | 8% / 78% |
 | Activity embeddings centred (market mean removed) | 18.0% | 44.7% | 2 | 81% / 8% |
 | Finer geography (≈35 km grid, σ 25 km, municipality one-hot) | 18.7% | 51.3% | 2 | 14% / 25% (legal form 60%) |
 | Both | 17.0% | 40.3% | 2 | 83% / 6% |

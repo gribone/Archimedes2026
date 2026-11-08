@@ -24,7 +24,7 @@ from ..clustering import stability as bootstrap_stability
 from ..data import load_universe
 from ..enrichment import enrich as link_and_contextualise
 from ..evidence import significant_features, portfolio_traits, activity_mix
-from ..features import build_features, DEFAULT_WEIGHTS
+from ..features import build_features, count_secondaries, secondary_band, DEFAULT_WEIGHTS
 from ..narrative import narrate as describe
 from ..pipeline import fit_portfolio, rank_candidates, evaluate_holdout
 from ..titles import activity_families, make_title
@@ -82,7 +82,11 @@ def evidence(ctx):
     companies, d = ctx['enrich']['companies'], ctx['load']['descriptions']
     traits, masks = ctx['represent']['traits'], ctx['discover']['masks']
     features, tests = significant_features(companies, traits, masks, d)
-    shared, shared_tests = portfolio_traits(companies, traits, set(ctx.obj('portfolio').vat), d)
+    # Portfolio-wide only: how many secondary ΚΑΔ a business declares (customers declare more than
+    # the market). Kept out of the per-profile tests and out of the ranking.
+    counts = count_secondaries(companies, ctx['load']['activities'])
+    shared_traits = [values | {f'secondary_count:{secondary_band(n)}'} for values, n in zip(traits, counts)]
+    shared, shared_tests = portfolio_traits(companies, shared_traits, set(ctx.obj('portfolio').vat), d)
     return {'features': features, 'tests': tests, 'activity_mix': activity_mix(companies, ctx['represent']['primary'], masks, d),
             'portfolio_traits': shared, 'portfolio_traits_tested': shared_tests}
 
@@ -197,7 +201,7 @@ STAGES = {s.name: s for s in [
           message='Discovering 1–6 revenue-weighted customer profiles'),
     Stage('stability', 'A5', ('represent', 'discover'), ('bootstrap',), ('clustering.py',), stability,
           message='Measuring bootstrap stability'),
-    Stage('evidence', 'A4', ('load', 'enrich', 'represent', 'discover'), PORTFOLIO, ('evidence.py',), evidence,
+    Stage('evidence', 'A4', ('load', 'enrich', 'represent', 'discover'), PORTFOLIO, ('evidence.py', 'features.py'), evidence,
           message='Testing which traits are over-represented (Fisher + BH)'),
     Stage('profiles', 'A2–A5', ('load', 'enrich', 'represent', 'discover', 'stability', 'evidence'), PORTFOLIO,
           ('titles.py',), profiles),

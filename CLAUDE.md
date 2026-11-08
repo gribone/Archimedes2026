@@ -58,13 +58,14 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 ### Measured results (reproduced on this Mac)
 | | Recall@500 | Recall@2000 |
 |---|---:|---:|
-| `main`, mean of 5 splits, with tourism signal (= shipped pipeline) | 21.3% | 51.3% |
+| `main`, mean of 5 splits, with tourism signal (= shipped pipeline, secondary-ΚΑΔ rule of 2026-11-08) | 21.7% | 51.0% |
 | `main`, mean of 5 splits, without tourism (`audit_ranking` default, `docs/ranking-audit.json`) | 18.0% | 50.3% |
 | `main`, default seeded split (seed 2026, in `report.json`) | 15/60 (25.0%) | 33/60 (55.0%) |
 | `feat/icp-engine-and-ui`, 5-fold | 14.0% | 29.7% |
 | Primary-ΚΑΔ baseline | ~1.3–1.7% | ~7–8% |
 
-- **Profiles:** `main` finds 3 (tourist islands: Cyclades, Heraklion, Chania, Dodecanese; Kassandra-Halkidiki + Thessaloniki; Attica/ΙΚΕ). Stability is 93% / 88% / 91%.
+- **Profiles:** `main` finds 3: ICP-01 Kassandra-Halkidiki + Thessaloniki (73), ICP-02 Attica/ΙΚΕ (100), ICP-03 tourist islands, i.e. Cyclades, Heraklion, Chania, Dodecanese (127). Stability is 92% / 93% / 94%, with worst 10% at 90% / 83% / 88%. Numbering changed with the 2026-11-08 secondary-ΚΑΔ rule.
+- **Secondary ΚΑΔ (challenge owner's guidance, 2026-11-08):** the primary dominates, related secondaries take part (incl. non-food at 5%), and trust falls as 5/n above 5 declared and is zero above 20. Recall-neutral, stability up. Policy: `features.SECONDARY_DEFAULT`. See `docs/ARCHITECTURE.md` §2.3.
 - **Portfolio-wide business traits:** ΙΚΕ 110/300 (2.4×) and school canteens 19/300 (2.4×, q = 0.02).
 - **LLM benchmark** (share of sentences passing the grounding checks / seconds per profile): Ministral 3 3B 61% / 50 s; Qwen3 1.7B 100% / 32 s; Gemma 3 1B 94% / 17 s. **Decision (user, 2026-11-07): ship Ministral 3 3B** for its European provenance. It overrode Dimitris's switch to Qwen during the merge. Revisit when Krikri-8B or EuroLLM-9B are benchmarked (T4). `DEFAULT_LLM` in `forcecrm/narrative.py` is the single source of truth, and `run.py` pulls whatever it names.
 - **Embeddings:** five models compared on the code-family proxy (hit@5) and on the real task (5-split recall@500/@2000 with only the embedding swapped):
@@ -81,7 +82,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Determinism:** the same inputs give byte-identical `lookalikes.csv` and `assignments.csv`, verified across separate runs.
 
 ### Working conventions for agents
-- **Ranking or features:** after any change to `features.py`, `clustering.py`, `affinity.py`, `pipeline.rank_candidates` or `forcecrm/stages/`, run `audit_ranking --with-tourism`. Compare against 21.3% / 51.3%; with 60 held-out VATs per split, ±2–3 points is noise. Check that `lookalikes.csv` is unchanged when you didn't intend a ranking change.
+- **Ranking or features:** after any change to `features.py`, `clustering.py`, `affinity.py`, `pipeline.rank_candidates` or `forcecrm/stages/`, run `audit_ranking --with-tourism`. Compare against 21.7% / 51.0%; with 60 held-out VATs per split, ±2–3 points is noise. Check that `lookalikes.csv` is unchanged when you didn't intend a ranking change.
 - **Any change:** run `pytest`, then a full `scripts.analyze` and `scripts.validate_exports` (must `PASS`).
 - **Greek text:** wording rules live in `narrative.py`: `BANNED`, `BAD_PATTERNS`, `check_sentence`, few-shot `EXAMPLES`.
   - Every number in a sentence must come from its source fact.

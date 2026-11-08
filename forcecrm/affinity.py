@@ -3,6 +3,9 @@ import numpy as np
 import pandas as pd
 
 
+SECONDARY_BAND_WEIGHT = .08
+
+
 def market_affinity(companies, customer_vats, primary_codes):
     # Each VAT contributes one unit distributed over its venues.
     weight = 1 / companies.groupby('vat').vat.transform('size')
@@ -21,6 +24,13 @@ def market_affinity(companies, customer_vats, primary_codes):
         # Five prior customer equivalents keep tiny groups close to neutral.
         lift = (customers + 5) / (total * prior + 5)
         log_lift += importance * np.log(key.map(lift).to_numpy())
+    if 'secondary_band' in companies:
+        # How many secondary activities a business declares (bands): optional, set by the pipeline.
+        band = companies.secondary_band
+        total = weight.groupby(band).sum()
+        customers = (weight * member).groupby(band).sum()
+        lift = (customers + 5) / (total * prior + 5)
+        log_lift += SECONDARY_BAND_WEIGHT * np.log(band.map(lift).fillna(1.).to_numpy(dtype=float))
     if 'hotel_band' in companies:
         band = companies.hotel_band
         total = weight.groupby(band).sum()

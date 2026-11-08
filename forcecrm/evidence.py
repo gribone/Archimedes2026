@@ -6,7 +6,8 @@ LABELS = {'hotel_band': 'Ετήσιες διανυκτερεύσεις ξενο�
           'osm_amenity': 'Κατηγορία καταστήματος στο OpenStreetMap',
           'primary_activity': 'Κύρια δραστηριότητα', 'legal_type': 'Νομική μορφή',
           'prefecture_name': 'Περιφερειακή ενότητα', 'municipality_name': 'Δήμος',
-          'incorporation_year': 'Έτος ίδρυσης', 'is_branch': 'Υποκατάστημα'}
+          'incorporation_year': 'Έτος ίδρυσης', 'is_branch': 'Υποκατάστημα',
+          'secondary_count': 'Πλήθος δευτερευουσών δραστηριοτήτων (ΚΑΔ)'}
 
 
 def bh_adjust(pvalues):
@@ -59,7 +60,7 @@ def significant_features(companies, traits, member_masks, descriptions):
     return output, len(tests)
 
 
-BUSINESS_KINDS = ('primary_activity', 'legal_type', 'incorporation_year', 'is_branch', 'osm_amenity')
+BUSINESS_KINDS = ('primary_activity', 'legal_type', 'incorporation_year', 'is_branch', 'osm_amenity', 'secondary_count')
 
 
 def portfolio_traits(companies, traits, customer_vats, descriptions):

@@ -33,7 +33,7 @@ ForceCRM · local B2B prospect research for Greek food-service businesses · 7 N
 ## 4. Where can it be wrong, and how do we detect it?
 | Risk | Detection / mitigation |
 |---|---|
-| Self-declared ΚΑΔ that aren't really practised | Primary activity weighted 85%; only closely related secondary ΚΑΔ 56 kept; a human verifies before contact |
+| Self-declared ΚΑΔ that aren't really practised | Primary activity ≥ 80% of the activity vector; only related secondaries kept, trusted less the more a business declares, ignored above 20; a human verifies before contact |
 | Invented or wrong text | One sentence per fact; numbers, %, names and wording checked; a failing sentence keeps its verified template |
 | Traits passing by chance | VAT-level Fisher tests, global Benjamini–Hochberg correction, ≥ 5 ΑΦΜ, lift ≥ 1.2; labelled exploratory |
 | Unstable profiles | Per-profile bootstrap Jaccard (mean and worst 10%), ARI; "limited quality" label |
