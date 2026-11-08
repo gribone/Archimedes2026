@@ -14,6 +14,28 @@
       if (me) location.replace("/");
     })
     .catch(() => {});
+  // One-click demo sign-in (no account): shown only when the server enables it.
+  const demoBox = document.getElementById("demo-login");
+  const demoButton = document.getElementById("demo-login-button");
+  fetch("/api/auth/demo")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((info) => {
+      if (info && info.enabled) demoBox.classList.remove("hidden");
+    })
+    .catch(() => {});
+  demoButton.addEventListener("click", async () => {
+    showError("");
+    demoButton.disabled = true;
+    try {
+      const response = await fetch("/api/auth/demo", { method: "POST", headers: { "X-ForceCRM": "local" } });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || `Σφάλμα διακομιστή (${response.status}).`);
+      location.replace("/");
+    } catch (err) {
+      showError(err.message);
+      demoButton.disabled = false;
+    }
+  });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const username = form.username.value.trim();

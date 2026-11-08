@@ -31,8 +31,13 @@ jobs = {}
 live_runs = {}  # job_id -> live GEMI check state; separate from the single analysis worker
 
 
-PUBLIC_PATHS = {'/api/auth/login', '/api/auth/logout', '/api/auth/me'}
+PUBLIC_PATHS = {'/api/auth/login', '/api/auth/demo', '/api/auth/logout', '/api/auth/me'}
 PAGES = {'/', '/index.html'}
+
+
+def demo_login_enabled():
+    """One-click demo sign-in on the login page; FORCECRM_DEMO_LOGIN=0 hides and disables it."""
+    return os.environ.get('FORCECRM_DEMO_LOGIN', '1') != '0'
 
 
 def auth_enabled():
@@ -334,6 +339,22 @@ def login(response: Response, username: str = Form(''), password: str = Form('')
     response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400, httponly=True,
                         samesite='strict', path='/')
     return {'user': user, 'created': created}
+
+
+@app.get('/api/auth/demo')
+def demo_available():
+    return {'enabled': demo_login_enabled()}
+
+
+@app.post('/api/auth/demo')
+def demo_login(response: Response):
+    if not demo_login_enabled():
+        raise HTTPException(404, 'Η είσοδος επίδειξης είναι απενεργοποιημένη.')
+    with closing(db.connect(ROOT)) as con:
+        user, token = auth.demo_login(con)
+    response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400, httponly=True,
+                        samesite='strict', path='/')
+    return {'user': user, 'demo': True}
 
 
 @app.post('/api/auth/logout')

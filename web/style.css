@@ -1808,6 +1808,19 @@ pre {
 .login-form .alert {
   margin: 0;
 }
+.login-demo {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.login-demo.hidden {
+  display: none;
+}
+.login-divider {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
 .login-note {
   margin: 18px 0 0;
   font-size: 11px;

@@ -104,6 +104,41 @@ def login(con, username, password):
     return _user(row), token, created
 
 
+# One-click demo sign-in for live presentations: a built-in local user with no usable password
+# (the marker never verifies, so the normal form cannot sign in as it) and the guided tour already done.
+DEMO_USERNAME = 'Επίδειξη'
+DEMO_PASSWORD_MARKER = '!demo-no-password'
+
+
+def demo_login(con):
+    """Return (user, session_token) for the built-in demo user, creating it on first use.
+
+    If a real account already uses the demo name, a numbered name is used instead, so a demo
+    sign-in can never open someone's own account.
+    """
+    ensure_schema(con)
+    for suffix in [''] + [f' {i}' for i in range(2, 50)]:
+        name = DEMO_USERNAME + suffix
+        row = con.execute('SELECT * FROM users WHERE username = ?', (name,)).fetchone()
+        if row is None:
+            now = _now().isoformat()
+            con.execute('INSERT INTO users (username, password_hash, created_at, tutorial_done_at) VALUES (?, ?, ?, ?)',
+                        (name, DEMO_PASSWORD_MARKER, now, now))
+            row = con.execute('SELECT * FROM users WHERE username = ?', (name,)).fetchone()
+        if row['password_hash'] == DEMO_PASSWORD_MARKER:
+            break
+    else:
+        raise AuthError('Δεν βρέθηκε διαθέσιμο όνομα για τον λογαριασμό επίδειξης.')
+    token = secrets.token_urlsafe(32)
+    now = _now()
+    con.execute('DELETE FROM sessions WHERE expires_at < ?', (now.isoformat(),))
+    con.execute('INSERT INTO sessions VALUES (?, ?, ?, ?)', (_token_hash(token), row['user_id'], now.isoformat(),
+                (now + timedelta(days=SESSION_DAYS)).isoformat()))
+    con.execute('UPDATE users SET last_login_at = ? WHERE user_id = ?', (now.isoformat(), row['user_id']))
+    con.commit()
+    return _user(row), token
+
+
 def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
 

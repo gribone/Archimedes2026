@@ -148,3 +148,20 @@ def test_reply_has_no_leading_space_after_marker():
     evts = events(assistant.stream_reply('Υπάρχει εφαρμογή για κινητά;', [], '',
                                          client_factory=fake_ollama(['[ΥΠΟΣΤΗΡΙΞΗ]', '\n ', ' Όχι ακόμη.'])))
     assert evts[0]['escalate'] and text_of(evts) == 'Όχι ακόμη.'
+
+
+def test_demo_login_needs_no_account_and_cannot_be_used_from_the_form(tmp_path):
+    import sqlite3
+    from forcecrm import auth
+    con = sqlite3.connect(tmp_path / 'demo.sqlite')
+    con.row_factory = sqlite3.Row
+    con.execute('CREATE TABLE users (user_id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, '
+                'password_hash TEXT NOT NULL, created_at TEXT NOT NULL)')
+    user, token = auth.demo_login(con)
+    assert user['username'] == auth.DEMO_USERNAME and user['tutorial_done'] is True
+    assert auth.session_user(con, token)['user_id'] == user['user_id']
+    again, _ = auth.demo_login(con)
+    assert again['user_id'] == user['user_id']  # reused, not a new account each time
+    import pytest
+    with pytest.raises(auth.AuthError):  # no password ever opens the demo user through the form
+        auth.login(con, auth.DEMO_USERNAME, auth.DEMO_PASSWORD_MARKER)

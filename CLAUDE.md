@@ -24,6 +24,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
   - The only outbound runtime call is the **opt-in** live ΓΕΜΗ check (`forcecrm/live.py`): prospect ΑΦΜ only, the user's own key. Keep it opt-in and declared (README, `docs/ENRICHMENT.md`, card, `docs/RESPONSIBLE_AI.md`).
   - Profile titles come from `forcecrm/titles.py`: the LLM picks phrases, stored in `activity_families`. Don't confuse this with the per-ΚΑΔ `activity_mix` from `evidence.py`.
   - Login and help chat (`forcecrm/auth.py`, `forcecrm/assistant.py`, `web/login.*`, `web/onboarding.js`): demo accounts only, all local. The assistant uses `DEFAULT_LLM`, answers only from `assistant.HELP`, and must stay out of profiles/scores/ranking. Update `HELP` when the UI changes. Support hand-off is rule-based (`HUMAN_TERMS`, `PROBLEM_TERMS`, repeated question), not left to the model.
+  - One-click demo sign-in: `POST /api/auth/demo` (`auth.demo_login`). It uses the built-in user «Επίδειξη»: unusable password marker, tour already done. `FORCECRM_DEMO_LOGIN=0` disables it. Use it for the live demo.
   - Never commit data or outputs: `*.csv`, `*.xlsx`, `outputs/`, `models/` and `.cache/` are gitignored.
 
 ### Environment on this Mac (Apple A18 Pro, 8 GB RAM, macOS 27)
