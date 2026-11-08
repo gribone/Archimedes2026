@@ -217,7 +217,7 @@ After an analysis, the user can check whether the top N prospects (≤ 200) are 
 | `profiles`, `profile_traits` | Profiles (full JSON plus key columns) and their significant traits (lift, p, q) |
 | `assignments`, `lookalikes` | Per-run venue assignments and ranked prospects, with display fields and a folded search key; indexed by run + rank and run + profile + rank |
 | `gemi_status` | Live ΓΕΜΗ results (7-day cache), joined into prospect queries for the status filters |
-| `users` | Schema only, reserved for the local login in T1 |
+| `users`, `sessions`, `support_tickets` | Local demo login (`auth.py`): scrypt password hashes, hashed session tokens with 7-day expiry, tutorial state, and help-chat hand-off tickets |
 
 - **Import:** on first use, and whenever a CSV's SHA-256 changes, inside one transaction (`BEGIN IMMEDIATE`, so concurrent server threads cannot import twice). Measured on the full data: cold import 1.5 s, warm load 0.6 s (direct CSV read: 0.5 s); file size 20 MB.
 - **Why rows are stored raw:** `data.load_universe` applies the same normalisation (ΑΦΜ padding, decimal commas, sorting) on top of either source, so the analysis sees identical frames. The exports are unchanged: `lookalikes.csv`, `assignments.csv` and `enrichment.csv` are byte-identical before and after; `profiles.json` differs only in the measured `llm.seconds`, which varies on every run.

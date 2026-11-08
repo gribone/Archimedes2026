@@ -3,12 +3,12 @@
 Source docs (Greek): `../ForceCRM_Hackathon_2026_Technical_Brief.pdf` (authoritative); pitch deck `../ForceCRM_Hackathon_2026.pptx`. Both are outside the repo, in `/Users/gribgen/workspace/FORCECRM/`.
 Repo: github.com/gribone/Archimedes2026. Original data lives outside the repo in `../Data/` (never commit it).
 
-## Current project state (as of 2026-11-07)
+## Current project state (as of 2026-11-08)
 
 ### Branches (GitHub default = `main`)
 | Branch | What it is |
 |---|---|
-| `main` | **The submission.** FastAPI + plain-JS UI, `forcecrm/` package. = `feature/forcecrm-local-ai` + later commits: setup/docs fix `95878d7`, Greek narration rework `28f8f1b`, PDF card rebuild `e9218ef`, architecture doc `f027c1b`, portfolio traits / activity mix `dd18c72`, task board `030a3ca`, then the merge of Dimitris's `feature/ui-titles-live-gemi` (grounded AI titles, weights panel, opt-in live ΓΕΜΗ check, offline Greece map, dark mode; branch deleted after merging). `git log --oneline` is authoritative. |
+| `main` | **The submission.** FastAPI + plain-JS UI, `forcecrm/` package. = `feature/forcecrm-local-ai` + later commits: setup/docs fix `95878d7`, Greek narration rework `28f8f1b`, PDF card rebuild `e9218ef`, architecture doc `f027c1b`, portfolio traits / activity mix `dd18c72`, task board `030a3ca`, the merge of Dimitris's `feature/ui-titles-live-gemi` (grounded AI titles, weights panel, opt-in live ΓΕΜΗ check, offline Greece map, dark mode), compliance fixes `3a5278a`, then Dimitris's stacked task branches fast-forwarded on 2026-11-08: T2 SQLite store `fc760ba`, T3 stage pipeline `f28c260`, UI collapsibles `3e55d80`, T16 demo login + guided tour + local help chat `33fdebd`. All merged branches were deleted from GitHub. `git log --oneline` is authoritative. |
 | `feature/forcecrm-local-ai` | Original local-ai solution (`661cfc2`), without the fixes, plus Stratos's dark-mode commit `e780450`, which duplicates the dark mode already merged into `main`. Keep, don't merge. |
 | `feat/icp-engine-and-ui` | Teammate's alternative (Streamlit, `src/`, uv). Weaker; **not to be merged**. Teammate still pushes UI changes to it. |
 | `feat/stage1-ingest-baseline` | First commit of the ICP branch only (ingest + baseline). History only. |
@@ -97,7 +97,7 @@ The user wants exactly these 4 branches on GitHub; delete any temporary branches
 - **Long runs:** the Mac has 8 GB RAM, so don't run two LLM-heavy jobs at once.
 
 ### Open problems on `main` (priority order)
-1. **Visual browser check pending.** `scripts/e2e_server.py` passed end to end against the real server on 2026-11-07: full run 24/24, custom weights 25/25, restore after restart 10/10. It covered upload, analysis, every export, `all.zip`, security rejections and the live check without a key. Nobody has yet *looked* at the rendered pages: portfolio-traits card, activity mix, titles, per-profile rank, map, options panel, dark mode. The live ΓΕΜΗ check with a real key is also untested.
+1. **Visual browser check pending.** `scripts/e2e_server.py` passed end to end against the real server on 2026-11-07 (full run 24/24, custom weights 25/25, restore after restart 10/10), and with the login on on 2026-11-08 (30/30, Dimitris). The T2/T3/T16 merge was **not re-tested** after merging into `main`; the user said to skip tests. Run `pytest` and `scripts.e2e_server` before the demo. It covered upload, analysis, every export, `all.zip`, security rejections and the live check without a key. Nobody has yet *looked* at the rendered pages: portfolio-traits card, activity mix, titles, per-profile rank, map, options panel, dark mode. The live ΓΕΜΗ check with a real key is also untested.
 2. **Greek fluency** has no native-speaker rating yet (the benchmark JSON has null rating fields). Activity names appear in ΓΕΜΗ capitals inside «».
 3. **Clean install untested on Windows/Linux.** The durable repo setup on this Mac hasn't been done (see Environment).
 4. **LLM default:** Ministral passes the checks least often (61%) and is the slowest. Qwen3 or Gemma are faster and pass more, but they aren't European. It's the user's call.

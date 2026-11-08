@@ -158,7 +158,7 @@ Sources: **ΓΕΜΗ (GEMI) Open Data** and **Geocoding powered by OpenStreetMap 
 
 AI coding assistant disclosure (development only, not part of application inference):
 - **OpenAI Codex**: architecture, implementation, documentation, tests and debugging.
-- **Claude Code (Anthropic)**: code review against the brief, holdout-recall verification, clean-install/setup fixes, the per-sentence Greek narration with grounding checks and the stated profile quality/stability/confidence, the demo login, guided tour and help assistant, and documentation updates.
+- **Claude Code (Anthropic)**, used by several team members: the SQLite store, the stage pipeline, and the login, onboarding tour and help chat; also code review against the brief, holdout-recall verification, clean-install/setup fixes, the per-sentence Greek narration with grounding checks and the stated profile quality/stability/confidence, the demo login, guided tour and help assistant, and documentation updates.
 
 ## Troubleshooting
 
