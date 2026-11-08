@@ -315,6 +315,7 @@ Archimedes2026/
 ├── pyproject.toml              # Project dependencies, packaging & pytest configuration
 ├── README.md                   # System documentation & mathematical specification
 ├── MODEL_DATA_CARD.md          # Comprehensive Model & Data Card (Section 5.3)
+├── static/                     # Executive Single-Page Application (HTML5, Tailwind CSS, Leaflet, Chart.js)
 ├── src/
 │   ├── config.py               # Central PipelineConfig & optimal weights loading
 │   ├── ingest.py               # Data ingestion, VAT zero-padding & client representative deduplication
@@ -325,7 +326,7 @@ Archimedes2026/
 │   ├── verifier.py             # Premise supersession engine & Google Places API status verification
 │   ├── service.py              # Stateful engine service, sales intelligence cockpit & caching
 │   ├── server.py               # Starlette ASGI backend & REST API endpoints
-│   └── static/                 # Executive Single-Page Application (HTML5, Tailwind CSS, Leaflet, Chart.js)
+│   └── static/                 # Embedded frontend mirror for ASGI server resolution
 ├── data/                       # Cached features, optimal weights, and hackathon datasets
 │   ├── optimal_weights.json    # Winning 100-fold cross-validation hyperparameters
 │   ├── cached_universe_features.parquet # Pre-cached 24,424 universe feature matrix

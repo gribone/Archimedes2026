@@ -34,6 +34,8 @@ from src.service import EngineService, Superseded
 
 _SERVICE_INSTANCE: EngineService | None = None
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+if not (STATIC_DIR / "index.html").exists():
+    STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 def get_service() -> EngineService:
